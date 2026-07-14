@@ -1,0 +1,36 @@
+[package]
+name        = "rusthound-tui"
+description = "RustHound TUI — SharpHound collection ingester and explorer"
+version     = "0.1.0"
+edition     = "2021"
+rust-version = "1.83"
+authors     = ["RustHound TUI Team"]
+license     = "Apache-2.0"
+
+[[bin]]
+name = "rusthound-tui"
+path = "src/main.rs"
+
+[lib]
+name = "rusthound_tui"
+path = "src/lib.rs"
+
+[dependencies]
+serde      = { version = "1",   features = ["derive"] }
+serde_json = { version = "1" }
+anyhow     = { version = "1" }
+thiserror  = { version = "1" }
+strum      = { version = "0.26", features = ["derive"] }
+clap       = { version = "=4.5.20", features = ["derive"] }
+zip        = { version = "0.6", default-features = false, features = ["deflate"] }
+ratatui    = { version = "0.29" }
+crossterm  = { version = "0.28" }
+
+[profile.release]
+opt-level     = 3
+lto           = "thin"
+codegen-units = 1
+strip         = "debuginfo"
+
+[profile.dev]
+opt-level = 1

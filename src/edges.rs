@@ -1,0 +1,131 @@
+//! Edge (relationship) kinds used to build attack paths in the graph.
+//!
+//! This mirrors BloodHound CE's full edge catalogue: AD edges, ACL-abuse
+//! edges, Azure edges, and Tier Zero / Kerberos-specific edges.
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::EnumString, strum::Display)]
+pub enum EdgeKind {
+    // ── Containment / structural ───────────────────────────────
+    Contains,
+    GpLink,
+    MemberOf,
+    AllowedToDelegate,
+    AllowedToAct,
+    TrustedBy,
+
+    // ── ACL abuse ───────────────────────────────────────────────
+    GenericAll,
+    GenericWrite,
+    WriteOwner,
+    WriteDacl,
+    Owns,
+    AllExtendedRights,
+    AddMember,
+    ForceChangePassword,
+    AddSelf,
+    WriteSPN,
+    AddKeyCredentialLink,
+    AddAllowedToAct,
+
+    // ── Sessions / local privileges ───────────────────────────
+    HasSession,
+    AdminTo,
+    CanRDP,
+    CanPSRemote,
+    ExecuteDCOM,
+    SQLAdmin,
+
+    // ── Credential exposure ────────────────────────────────────
+    ReadLAPSPassword,
+    ReadGMSAPassword,
+    DCSync,
+    GetChanges,
+    GetChangesAll,
+    GetChangesInFilteredSet,
+    SyncLAPSPassword,
+    DumpSMSAPassword,
+    HasSIDHistory,
+
+    // ── Kerberos abuse ──────────────────────────────────────────
+    Kerberoastable,
+    ASREPRoastable,
+    UnconstrainedDelegation,
+    ConstrainedDelegation,
+    CoerceToTGT,
+    CoerceAndRelayNTLMToSMB,
+    CoerceAndRelayNTLMToLDAP,
+    CoerceAndRelayNTLMToLDAPS,
+    CoerceAndRelayNTLMToADCS,
+    CoerceAndRelayNTLMToSQL,
+
+    // ── ADCS edges ───────────────────────────────────────────────
+    ADCSESC1,
+    ADCSESC3,
+    ADCSESC4,
+    ADCSESC6a,
+    ADCSESC6b,
+    ADCSESC9a,
+    ADCSESC9b,
+    ADCSESC10a,
+    ADCSESC10b,
+    ADCSESC13,
+    GoldenCert,
+    EnrollOnBehalfOf,
+    Enroll,
+    ManageCertificates,
+    ManageCA,
+    PublishedTo,
+    IssuedSignedBy,
+    HostsCAService,
+    NTAuthStoreFor,
+    TrustedForNTAuth,
+    DelegatedEnrollmentAgent,
+    OIDGroupLink,
+
+    // ── Azure edges ───────────────────────────────────────────────
+    AZContains,
+    AZMemberOf,
+    AZOwns,
+    AZUserAccessAdministrator,
+    AZGetCertificates,
+    AZGetKeys,
+    AZGetSecrets,
+    AZAvereContributor,
+    AZContributor,
+    AZAddMembers,
+    AZAddSecret,
+    AZExecuteCommand,
+    AZGlobalAdmin,
+    AZPrivilegedAuthAdministrator,
+    AZGrant,
+    AZGrantSelf,
+    AZPrivilegedRoleAdmin,
+    AZResetPassword,
+    AZVMAdminLogin,
+    AZVMContributor,
+    AZAddOwner,
+    AZManagedIdentity,
+    AZRunsAs,
+    AZAKSContributor,
+    AZNodeResourceGroup,
+    AZWebsiteContributor,
+    AZLogicAppContributor,
+    AZAutomationContributor,
+    AZKeyVaultContributor,
+    AZAppAdmin,
+    AZCloudAppAdmin,
+    AZApplicationReadWriteAll,
+    AZAppRoleAssignmentReadWriteAll,
+    AZDeviceManagementApps,
+    AZRoleEligible,
+    AZRoleApprover,
+    AZScopedTo,
+    AZHasRole,
+    AZSyncAccount,
+    AZManagementGroup,
+
+    #[serde(other)]
+    Unknown,
+}
