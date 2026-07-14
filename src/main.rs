@@ -21,7 +21,7 @@ use rusthound_tui::{
     tui,
 };
 
-// ── CLI definition ────────────────────────────────────────────────────────────
+// CLI definition
 
 #[derive(Parser)]
 #[command(
@@ -105,14 +105,14 @@ enum Commands {
     },
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────
+// Entry point
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
 
-        // ── ingest ────────────────────────────────────────────────────────────
+// ingest
         Commands::Ingest { path } => {
             let dataset = parse_path(&path)?;
             let summary = summarize(&dataset);
@@ -140,7 +140,7 @@ fn main() -> anyhow::Result<()> {
             println!("\n  (run `analyze` or `tui` for detailed attack paths)");
         }
 
-        // ── analyze ───────────────────────────────────────────────────────────
+// analyze
         Commands::Analyze { path, json } => {
             let dataset = parse_path(&path)?;
             let reports = analysis::analyze(&dataset);
@@ -214,7 +214,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        // ── tree ──────────────────────────────────────────────────────────────
+// tree
         Commands::Tree { path, from, depth, attack, max_children, tier_zero } => {
             let dataset = parse_path(&path)?;
             let graph   = graph_builder::build(&dataset);
@@ -268,7 +268,7 @@ fn main() -> anyhow::Result<()> {
                 graph.node_count(), graph.edge_count());
         }
 
-        // ── paths ─────────────────────────────────────────────────────────────
+// paths
         Commands::Paths { path, from, max } => {
             let dataset = parse_path(&path)?;
             let graph   = graph_builder::build(&dataset);
@@ -290,7 +290,7 @@ fn main() -> anyhow::Result<()> {
             tree_view::print_attack_paths(&graph, &start_id, max);
         }
 
-        // ── tui ───────────────────────────────────────────────────────────────
+// tui
         Commands::Tui { path } => {
             let dataset = parse_path(&path)?;
             let graph   = graph_builder::build(&dataset);

@@ -91,7 +91,7 @@ pub fn analyze(d: &ParsedDataset) -> Vec<AnalysisReport> {
 }
 
 fn analyze_domain(d: &ParsedDataset, domain_sid: &str, domain_name: &str) -> AnalysisReport {
-    // ── Tier Zero groups ─────────────────────────────────────────────────────
+// Tier Zero groups
     let tier_zero_groups: Vec<TierZeroGroup> = d
         .groups
         .iter()
@@ -108,7 +108,7 @@ fn analyze_domain(d: &ParsedDataset, domain_sid: &str, domain_name: &str) -> Ana
         })
         .collect();
 
-    // ── Kerberoastable users ──────────────────────────────────────────────────
+// Kerberoastable users
     let kerberoastable: Vec<KerberoastableUser> = d
         .users
         .iter()
@@ -126,7 +126,7 @@ fn analyze_domain(d: &ParsedDataset, domain_sid: &str, domain_name: &str) -> Ana
         })
         .collect();
 
-    // ── AS-REP Roastable ─────────────────────────────────────────────────────
+// AS-REP roastable users
     let asrep_roastable: Vec<AsrepUser> = d
         .users
         .iter()
@@ -141,7 +141,7 @@ fn analyze_domain(d: &ParsedDataset, domain_sid: &str, domain_name: &str) -> Ana
         })
         .collect();
 
-    // ── Unconstrained delegation computers ───────────────────────────────────
+// Unconstrained delegation computers
     let unconstrained_computers: Vec<UnconstrainedComputer> = d
         .computers
         .iter()
@@ -153,7 +153,7 @@ fn analyze_domain(d: &ParsedDataset, domain_sid: &str, domain_name: &str) -> Ana
         })
         .collect();
 
-    // ── ACE summary ──────────────────────────────────────────────────────────
+// ACE summary
     let mut ace_summary = AceSummary::default();
     let all_aces = d.users.iter().flat_map(|u| u.aces.iter())
         .chain(d.groups.iter().flat_map(|g| g.aces.iter()))
@@ -177,7 +177,7 @@ fn analyze_domain(d: &ParsedDataset, domain_sid: &str, domain_name: &str) -> Ana
         }
     }
 
-    // ── Graph edges ───────────────────────────────────────────────────────────
+// Graph edges
     let member_edges: Vec<MemberEdge> = d
         .groups
         .iter()

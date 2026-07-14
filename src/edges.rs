@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::EnumString, strum::Display)]
 pub enum EdgeKind {
-    // ── Containment / structural ───────────────────────────────
+// Containment / structural
     Contains,
     GpLink,
     MemberOf,
@@ -15,7 +15,7 @@ pub enum EdgeKind {
     AllowedToAct,
     TrustedBy,
 
-    // ── ACL abuse ───────────────────────────────────────────────
+// ACL abuse
     GenericAll,
     GenericWrite,
     WriteOwner,
@@ -29,7 +29,7 @@ pub enum EdgeKind {
     AddKeyCredentialLink,
     AddAllowedToAct,
 
-    // ── Sessions / local privileges ───────────────────────────
+// Sessions / local privileges
     HasSession,
     AdminTo,
     CanRDP,
@@ -37,7 +37,7 @@ pub enum EdgeKind {
     ExecuteDCOM,
     SQLAdmin,
 
-    // ── Credential exposure ────────────────────────────────────
+// Credential exposure
     ReadLAPSPassword,
     ReadGMSAPassword,
     DCSync,
@@ -48,7 +48,7 @@ pub enum EdgeKind {
     DumpSMSAPassword,
     HasSIDHistory,
 
-    // ── Kerberos abuse ──────────────────────────────────────────
+// Kerberos abuse
     Kerberoastable,
     ASREPRoastable,
     UnconstrainedDelegation,
@@ -60,7 +60,7 @@ pub enum EdgeKind {
     CoerceAndRelayNTLMToADCS,
     CoerceAndRelayNTLMToSQL,
 
-    // ── ADCS edges ───────────────────────────────────────────────
+// ADCS edges
     ADCSESC1,
     ADCSESC3,
     ADCSESC4,
@@ -84,7 +84,7 @@ pub enum EdgeKind {
     DelegatedEnrollmentAgent,
     OIDGroupLink,
 
-    // ── Azure edges ───────────────────────────────────────────────
+// Azure edges
     AZContains,
     AZMemberOf,
     AZOwns,

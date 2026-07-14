@@ -10,7 +10,7 @@ use crate::ad::PropertyAccess;
 
 use crate::ParsedDataset;
 
-// ── Node ────────────────────────────────────────────────────────────────────
+// Node
 
 #[derive(Debug, Clone)]
 pub struct GNode {
@@ -43,7 +43,7 @@ impl std::fmt::Display for NodeKind {
     }
 }
 
-// ── Edge ─────────────────────────────────────────────────────────────────────
+// Edge
 
 #[derive(Debug, Clone)]
 pub struct GEdge {
@@ -87,7 +87,7 @@ impl GEdge {
     }
 }
 
-// ── Graph ─────────────────────────────────────────────────────────────────────
+// Graph
 
 pub struct Graph {
     pub nodes:       HashMap<String, GNode>,         // id → node
@@ -154,7 +154,7 @@ impl Graph {
     }
 }
 
-// ── Builder ───────────────────────────────────────────────────────────────────
+// Builder
 
 pub fn build(dataset: &ParsedDataset) -> Graph {
     let mut nodes:      HashMap<String, GNode>      = HashMap::new();
@@ -173,7 +173,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }};
     }
 
-    // ── Users ────────────────────────────────────────────────────────────────
+// Users
     for u in &dataset.users {
         let name = u.name().to_string();
         nodes.insert(u.object_identifier.clone(), GNode {
@@ -193,7 +193,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-    // ── Groups ────────────────────────────────────────────────────────────────
+// Groups
     for g in &dataset.groups {
         let name = g.name().to_string();
         let hv = g.is_high_value_name()
@@ -217,7 +217,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-    // ── Computers ─────────────────────────────────────────────────────────────
+// Computers
     for c in &dataset.computers {
         let name = c.name().to_string();
         nodes.insert(c.object_identifier.clone(), GNode {
@@ -252,7 +252,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-    // ── Domains ───────────────────────────────────────────────────────────────
+// Domains
     for d in &dataset.domains {
         nodes.insert(d.object_identifier.clone(), GNode {
             id:          d.object_identifier.clone(),
@@ -268,7 +268,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-    // ── GPOs ──────────────────────────────────────────────────────────────────
+// GPOs
     for g in &dataset.gpos {
         nodes.insert(g.object_identifier.clone(), GNode {
             id: g.object_identifier.clone(), name: g.name().to_string(),
@@ -280,7 +280,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-    // ── OUs ───────────────────────────────────────────────────────────────────
+// OUs
     for o in &dataset.ous {
         nodes.insert(o.object_identifier.clone(), GNode {
             id: o.object_identifier.clone(), name: o.name().to_string(),
@@ -292,7 +292,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-    // ── Containers ────────────────────────────────────────────────────────────
+// Containers
     for c in &dataset.containers {
         nodes.insert(c.object_identifier.clone(), GNode {
             id: c.object_identifier.clone(), name: c.name().to_string(),
@@ -301,7 +301,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         });
     }
 
-    // ── ADCS objects (cert templates, CAs, etc.) ────────────────────────────
+// ADCS objects (cert templates, CAs, etc.)
     for a in &dataset.adcs {
         let name = a.name().to_string();
         nodes.insert(a.object_identifier.clone(), GNode {
@@ -318,7 +318,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-    // ── Name index ────────────────────────────────────────────────────────────
+// Name index
     let mut name_index: HashMap<String, Vec<String>> = HashMap::new();
     for (id, n) in &nodes {
         let full_key = n.name.to_uppercase();

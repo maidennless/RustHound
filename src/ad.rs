@@ -121,7 +121,7 @@ pub struct ConnectivityStatus {
     pub error: Option<String>,
 }
 
-// ── User ─────────────────────────────────────────────────────────────────────
+// User
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdUser {
@@ -172,7 +172,7 @@ impl AdUser {
     }
 }
 
-// ── Computer ──────────────────────────────────────────────────────────────────
+// Computer
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdComputer {
@@ -230,7 +230,7 @@ impl AdComputer {
     }
 }
 
-// ── Group ─────────────────────────────────────────────────────────────────────
+// Group
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdGroup {
@@ -273,7 +273,7 @@ impl AdGroup {
     }
 }
 
-// ── Domain ────────────────────────────────────────────────────────────────────
+// Domain
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdDomain {
@@ -301,7 +301,7 @@ impl AdDomain {
     }
 }
 
-// ── GPO ───────────────────────────────────────────────────────────────────────
+// GPO
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdGpo {
@@ -323,7 +323,7 @@ impl AdGpo {
     }
 }
 
-// ── OU ────────────────────────────────────────────────────────────────────────
+// OU
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdOu {
@@ -349,7 +349,7 @@ impl AdOu {
     }
 }
 
-// ── Container ─────────────────────────────────────────────────────────────────
+// Container
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdContainer {
@@ -373,7 +373,7 @@ impl AdContainer {
     }
 }
 
-// ── ADCS objects (cert templates, CAs, NTAuthStores, etc.) ───────────
+// ADCS objects (cert templates, CAs, NTAuthStores, etc.)
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdcsObject {

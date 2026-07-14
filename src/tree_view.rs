@@ -132,7 +132,7 @@ fn sorted_edges<'a>(edges: &'a [GEdge], cfg: &TreeConfig) -> Vec<&'a GEdge> {
     v
 }
 
-// ── Paths to high-value targets ───────────────────────────────────────────────
+// Paths to high-value targets
 
 /// Print all shortest paths from `start_id` to any high-value node.
 /// Uses BFS so paths are always shortest first.
@@ -226,7 +226,7 @@ pub fn print_tier_zero(graph: &Graph) {
     }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
 fn kind_tag(n: &GNode) -> String {
     let ac = if n.admin_count { format!(" {PURPLE}[admincount]{RESET}") } else { String::new() };

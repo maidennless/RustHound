@@ -27,7 +27,7 @@ use ratatui::{
 
 use crate::graph_builder::{GNode, Graph, NodeKind};
 
-// ── State ─────────────────────────────────────────────────────────────────────
+// State
 
 #[derive(PartialEq)]
 enum Panel { NodeList, OutEdges, InEdges }
@@ -204,7 +204,7 @@ impl<'g> App<'g> {
     }
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────
+// Entry point
 
 pub fn run_tui(graph: &Graph) -> io::Result<()> {
     enable_raw_mode()?;
@@ -293,7 +293,7 @@ fn run_loop<B: ratatui::backend::Backend>(
     }
 }
 
-// ── UI rendering ──────────────────────────────────────────────────────────────
+// UI rendering
 
 fn ui(f: &mut Frame, app: &mut App) {
     let area = f.area();
@@ -487,7 +487,7 @@ fn render_status(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(line), area);
 }
 
-// ── Style helpers ─────────────────────────────────────────────────────────────
+// Style helpers
 
 fn kind_style(kind: NodeKind, high_value: bool) -> (&'static str, Color) {
     if high_value {
