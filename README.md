@@ -463,6 +463,8 @@ RustHound TUI is built for the laptop you actually bring to an engagement — th
 
 <div align="center">
 
+<img src="https://gifsec.com/wp-content/uploads/2022/10/anime-dance-gif-1.gif" width="160" alt="dancing">
+
 *forged for the terminal, no server, no Electron, no compromise*
 
 </div>
