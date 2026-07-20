@@ -5,8 +5,10 @@
 //! becomes a directed [`GEdge`].  All lookups are O(1) via HashMaps.
 
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use crate::ad::PropertyAccess;
+use crate::edges::EdgeKind;
 
 use crate::ParsedDataset;
 
@@ -49,39 +51,41 @@ impl std::fmt::Display for NodeKind {
 pub struct GEdge {
     pub source: String,
     pub target: String,
-    pub kind:   String,
+    pub kind:   EdgeKind,
 }
 
 impl GEdge {
     /// True for edges that represent privilege escalation paths.
     pub fn is_attack_edge(&self) -> bool {
         matches!(
-            self.kind.as_str(),
-            "GenericAll" | "GenericWrite" | "WriteDacl" | "WriteOwner" | "Owns"
-            | "AllExtendedRights" | "ForceChangePassword" | "AddMember"
-            | "AddSelf" | "WriteSPN" | "AddKeyCredentialLink"
-            | "ReadLAPSPassword" | "ReadGMSAPassword"
-            | "DCSync" | "GetChanges" | "GetChangesAll"
-            | "AdminTo" | "HasSession"
-            | "CanRDP" | "CanPSRemote" | "ExecuteDCOM"
-            | "AllowedToDelegate" | "AllowedToAct"
+            self.kind,
+            EdgeKind::GenericAll | EdgeKind::GenericWrite | EdgeKind::WriteDacl
+            | EdgeKind::WriteOwner | EdgeKind::Owns
+            | EdgeKind::AllExtendedRights | EdgeKind::ForceChangePassword
+            | EdgeKind::AddMember | EdgeKind::AddSelf | EdgeKind::WriteSPN
+            | EdgeKind::AddKeyCredentialLink
+            | EdgeKind::ReadLAPSPassword | EdgeKind::ReadGMSAPassword
+            | EdgeKind::DCSync | EdgeKind::GetChanges | EdgeKind::GetChangesAll
+            | EdgeKind::AdminTo | EdgeKind::HasSession
+            | EdgeKind::CanRDP | EdgeKind::CanPSRemote | EdgeKind::ExecuteDCOM
+            | EdgeKind::AllowedToDelegate | EdgeKind::AllowedToAct
         )
     }
 
     /// ANSI colour for this edge kind.
     pub fn color_code(&self) -> &'static str {
-        match self.kind.as_str() {
-            "MemberOf" | "Contains" => "\x1b[34m",      // blue
-            "AdminTo" | "HasSession" => "\x1b[33m",     // yellow
-            "GenericAll" | "Owns"    => "\x1b[31m",     // red
-            "WriteDacl" | "WriteOwner" | "GenericWrite" => "\x1b[91m", // bright red
-            "ForceChangePassword" | "DCSync" => "\x1b[31;1m",         // bold red
-            "AddMember" | "AddSelf"  => "\x1b[35m",    // magenta
-            "AllExtendedRights"      => "\x1b[91m",    // bright red
-            "ReadLAPSPassword" | "ReadGMSAPassword" => "\x1b[33;1m",  // bright yellow
-            "WriteSPN" | "AddKeyCredentialLink"     => "\x1b[95m",    // bright magenta
-            "CanRDP" | "CanPSRemote" | "ExecuteDCOM" => "\x1b[36m",  // cyan
-            "AllowedToDelegate" | "AllowedToAct"    => "\x1b[93m",   // bright yellow
+        match self.kind {
+            EdgeKind::MemberOf | EdgeKind::Contains => "\x1b[34m",      // blue
+            EdgeKind::AdminTo | EdgeKind::HasSession => "\x1b[33m",     // yellow
+            EdgeKind::GenericAll | EdgeKind::Owns    => "\x1b[31m",     // red
+            EdgeKind::WriteDacl | EdgeKind::WriteOwner | EdgeKind::GenericWrite => "\x1b[91m", // bright red
+            EdgeKind::ForceChangePassword | EdgeKind::DCSync => "\x1b[31;1m",         // bold red
+            EdgeKind::AddMember | EdgeKind::AddSelf  => "\x1b[35m",    // magenta
+            EdgeKind::AllExtendedRights              => "\x1b[91m",    // bright red
+            EdgeKind::ReadLAPSPassword | EdgeKind::ReadGMSAPassword => "\x1b[33;1m",  // bright yellow
+            EdgeKind::WriteSPN | EdgeKind::AddKeyCredentialLink     => "\x1b[95m",    // bright magenta
+            EdgeKind::CanRDP | EdgeKind::CanPSRemote | EdgeKind::ExecuteDCOM => "\x1b[36m",  // cyan
+            EdgeKind::AllowedToDelegate | EdgeKind::AllowedToAct    => "\x1b[93m",   // bright yellow
             _                        => "\x1b[37m",    // white
         }
     }
@@ -166,7 +170,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
             let e = GEdge {
                 source: $src.to_string(),
                 target: $tgt.to_string(),
-                kind:   $kind.to_string(),
+                kind:   $kind,
             };
             edges_from.entry($src.to_string()).or_default().push(e.clone());
             edges_to.entry($tgt.to_string()).or_default().push(e);
@@ -186,10 +190,11 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
             domain_sid:  u.domain_sid().map(str::to_string),
         });
         for ace in &u.aces {
-            add_edge!(ace.principal_sid, u.object_identifier, ace.right_name);
+            let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
+            add_edge!(ace.principal_sid, u.object_identifier, kind);
         }
         for d in &u.allowed_to_delegate {
-            add_edge!(u.object_identifier, d, "AllowedToDelegate");
+            add_edge!(u.object_identifier, d, EdgeKind::AllowedToDelegate);
         }
     }
 
@@ -210,10 +215,11 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         });
         // MemberOf edges: member → MemberOf → group
         for m in &g.members {
-            add_edge!(m.object_identifier, g.object_identifier, "MemberOf");
+            add_edge!(m.object_identifier, g.object_identifier, EdgeKind::MemberOf);
         }
         for ace in &g.aces {
-            add_edge!(ace.principal_sid, g.object_identifier, ace.right_name);
+            let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
+            add_edge!(ace.principal_sid, g.object_identifier, kind);
         }
     }
 
@@ -230,25 +236,26 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
             domain_sid:  c.domain_sid().map(str::to_string),
         });
         for ace in &c.aces {
-            add_edge!(ace.principal_sid, c.object_identifier, ace.right_name);
+            let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
+            add_edge!(ace.principal_sid, c.object_identifier, kind);
         }
         for p in &c.local_admins.results {
-            add_edge!(p.object_identifier, c.object_identifier, "AdminTo");
+            add_edge!(p.object_identifier, c.object_identifier, EdgeKind::AdminTo);
         }
         for s in &c.sessions.results {
-            add_edge!(c.object_identifier, s.user_sid, "HasSession");
+            add_edge!(c.object_identifier, s.user_sid, EdgeKind::HasSession);
         }
         for p in &c.remote_desktop_users.results {
-            add_edge!(p.object_identifier, c.object_identifier, "CanRDP");
+            add_edge!(p.object_identifier, c.object_identifier, EdgeKind::CanRDP);
         }
         for p in &c.ps_remote_users.results {
-            add_edge!(p.object_identifier, c.object_identifier, "CanPSRemote");
+            add_edge!(p.object_identifier, c.object_identifier, EdgeKind::CanPSRemote);
         }
         for p in &c.dcom_users.results {
-            add_edge!(p.object_identifier, c.object_identifier, "ExecuteDCOM");
+            add_edge!(p.object_identifier, c.object_identifier, EdgeKind::ExecuteDCOM);
         }
         for p in &c.allowed_to_act {
-            add_edge!(p.object_identifier, c.object_identifier, "AllowedToAct");
+            add_edge!(p.object_identifier, c.object_identifier, EdgeKind::AllowedToAct);
         }
     }
 
@@ -264,7 +271,8 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
             domain_sid:  Some(d.object_identifier.clone()),
         });
         for ace in &d.aces {
-            add_edge!(ace.principal_sid, d.object_identifier, ace.right_name);
+            let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
+            add_edge!(ace.principal_sid, d.object_identifier, kind);
         }
     }
 
@@ -276,7 +284,8 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
             admin_count: false, domain_sid: None,
         });
         for ace in &g.aces {
-            add_edge!(ace.principal_sid, g.object_identifier, ace.right_name);
+            let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
+            add_edge!(ace.principal_sid, g.object_identifier, kind);
         }
     }
 
@@ -288,7 +297,8 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
             admin_count: false, domain_sid: None,
         });
         for ace in &o.aces {
-            add_edge!(ace.principal_sid, o.object_identifier, ace.right_name);
+            let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
+            add_edge!(ace.principal_sid, o.object_identifier, kind);
         }
     }
 
@@ -314,7 +324,8 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
             domain_sid: a.properties.prop_str("domainsid").map(str::to_string),
         });
         for ace in &a.aces {
-            add_edge!(ace.principal_sid, a.object_identifier, ace.right_name);
+            let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
+            add_edge!(ace.principal_sid, a.object_identifier, kind);
         }
     }
 
@@ -424,4 +435,76 @@ mod tests {
         assert!(matches.iter().any(|n| n.id == "id-1"));
         assert!(matches.iter().any(|n| n.id == "id-2"));
     }
+#[test]
+    fn build_creates_edges_with_correct_kind() {
+        use crate::ad::{AdUser, AdGroup, Ace, TypedPrincipal};
+        use crate::ParsedDataset;
+
+        let mut user_props = crate::ad::Properties::new();
+        user_props.insert("name".to_string(), serde_json::json!("ALICE@TEST.LOCAL"));
+
+        let user = AdUser {
+            object_identifier: "USER-SID".to_string(),
+            properties: user_props,
+            primary_group_sid: None,
+            allowed_to_delegate: vec![],
+            aces: vec![
+                Ace {
+                    right_name: "GenericAll".to_string(),
+                    is_inherited: false,
+                    principal_sid: "ATTACKER-SID".to_string(),
+                    principal_type: "User".to_string(),
+                },
+                Ace {
+                    right_name: "SomeBrandNewRightNobodyKnowsYet".to_string(),
+                    is_inherited: false,
+                    principal_sid: "MYSTERY-SID".to_string(),
+                    principal_type: "User".to_string(),
+                },
+            ],
+            spn_targets: vec![],
+            has_sid_history: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+        };
+
+        let mut group_props = crate::ad::Properties::new();
+        group_props.insert("name".to_string(), serde_json::json!("DOMAIN USERS@TEST.LOCAL"));
+
+        let group = AdGroup {
+            object_identifier: "GROUP-SID".to_string(),
+            properties: group_props,
+            members: vec![TypedPrincipal {
+                object_identifier: "USER-SID".to_string(),
+                object_type: "User".to_string(),
+            }],
+            aces: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+        };
+
+        let mut dataset = ParsedDataset::default();
+        dataset.users.push(user);
+        dataset.groups.push(group);
+
+        let graph = build(&dataset);
+
+        let member_edges = graph.outgoing("USER-SID");
+        let member_of = member_edges.iter().find(|e| e.target == "GROUP-SID");
+        assert!(member_of.is_some());
+        assert_eq!(member_of.unwrap().kind, EdgeKind::MemberOf);
+
+        let ace_edges = graph.outgoing("ATTACKER-SID");
+        let generic_all = ace_edges.iter().find(|e| e.target == "USER-SID");
+        assert!(generic_all.is_some());
+        assert_eq!(generic_all.unwrap().kind, EdgeKind::GenericAll);
+        assert!(generic_all.unwrap().is_attack_edge());
+
+        let mystery_edges = graph.outgoing("MYSTERY-SID");
+        let unknown_edge = mystery_edges.iter().find(|e| e.target == "USER-SID");
+        assert!(unknown_edge.is_some());
+        assert_eq!(unknown_edge.unwrap().kind, EdgeKind::Unknown);
+        assert!(!unknown_edge.unwrap().is_attack_edge());
+    }
+
 }

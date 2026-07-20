@@ -25,6 +25,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
+use crate::edges::EdgeKind;
 use crate::graph_builder::{GNode, Graph, NodeKind};
 
 // State
@@ -505,30 +506,31 @@ fn kind_style(kind: NodeKind, high_value: bool) -> (&'static str, Color) {
     }
 }
 
-fn edge_style(kind: &str) -> (Color, &str) {
-    match kind {
-        "MemberOf"             => (Color::Blue,          "MemberOf"),
-        "AdminTo"              => (Color::Yellow,         "AdminTo"),
-        "HasSession"           => (Color::Yellow,         "HasSession"),
-        "GenericAll"           => (Color::Red,            "GenericAll"),
-        "Owns"                 => (Color::Red,            "Owns"),
-        "WriteDacl"            => (Color::LightRed,       "WriteDacl"),
-        "WriteOwner"           => (Color::LightRed,       "WriteOwner"),
-        "GenericWrite"         => (Color::LightRed,       "GenericWrite"),
-        "ForceChangePassword"  => (Color::Red,            "ForceChangePassword"),
-        "DCSync"               => (Color::Red,            "DCSync"),
-        "AllExtendedRights"    => (Color::LightRed,       "AllExtendedRights"),
-        "AddMember"            => (Color::Magenta,        "AddMember"),
-        "AddSelf"              => (Color::Magenta,        "AddSelf"),
-        "WriteSPN"             => (Color::LightMagenta,   "WriteSPN"),
-        "AddKeyCredentialLink" => (Color::LightMagenta,   "AddKeyCredentialLink"),
-        "ReadLAPSPassword"     => (Color::LightYellow,    "ReadLAPSPassword"),
-        "ReadGMSAPassword"     => (Color::LightYellow,    "ReadGMSAPassword"),
-        "CanRDP"               => (Color::Cyan,           "CanRDP"),
-        "CanPSRemote"          => (Color::Cyan,           "CanPSRemote"),
-        "ExecuteDCOM"          => (Color::Cyan,           "ExecuteDCOM"),
-        "AllowedToDelegate"    => (Color::LightYellow,    "AllowedToDelegate"),
-        "AllowedToAct"         => (Color::LightYellow,    "AllowedToAct"),
-        other                  => (Color::White,           other),
-    }
+fn edge_style(kind: &EdgeKind) -> (Color, String) {
+    let color = match kind {
+        EdgeKind::MemberOf             => Color::Blue,
+        EdgeKind::AdminTo              => Color::Yellow,
+        EdgeKind::HasSession           => Color::Yellow,
+        EdgeKind::GenericAll           => Color::Red,
+        EdgeKind::Owns                 => Color::Red,
+        EdgeKind::WriteDacl            => Color::LightRed,
+        EdgeKind::WriteOwner           => Color::LightRed,
+        EdgeKind::GenericWrite         => Color::LightRed,
+        EdgeKind::ForceChangePassword  => Color::Red,
+        EdgeKind::DCSync               => Color::Red,
+        EdgeKind::AllExtendedRights    => Color::LightRed,
+        EdgeKind::AddMember            => Color::Magenta,
+        EdgeKind::AddSelf              => Color::Magenta,
+        EdgeKind::WriteSPN             => Color::LightMagenta,
+        EdgeKind::AddKeyCredentialLink => Color::LightMagenta,
+        EdgeKind::ReadLAPSPassword     => Color::LightYellow,
+        EdgeKind::ReadGMSAPassword     => Color::LightYellow,
+        EdgeKind::CanRDP               => Color::Cyan,
+        EdgeKind::CanPSRemote          => Color::Cyan,
+        EdgeKind::ExecuteDCOM          => Color::Cyan,
+        EdgeKind::AllowedToDelegate    => Color::LightYellow,
+        EdgeKind::AllowedToAct         => Color::LightYellow,
+        _                              => Color::White,
+    };
+    (color, kind.to_string())
 }

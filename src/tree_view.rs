@@ -10,7 +10,9 @@
 //! ```
 
 use std::collections::HashSet;
+use std::str::FromStr;
 
+use crate::edges::EdgeKind;
 use crate::graph_builder::{GEdge, GNode, Graph, NodeKind};
 
 const RESET:  &str = "\x1b[0m";
@@ -125,9 +127,9 @@ fn sorted_edges<'a>(edges: &'a [GEdge], cfg: &TreeConfig) -> Vec<&'a GEdge> {
 
     // Attack edges first, then structural (MemberOf), then others
     v.sort_by_key(|e| {
-        if e.is_attack_edge()            { 0u8 }
-        else if e.kind == "MemberOf"     { 1u8 }
-        else                             { 2u8 }
+        if e.is_attack_edge()               { 0u8 }
+        else if e.kind == EdgeKind::MemberOf { 1u8 }
+        else                                 { 2u8 }
     });
     v
 }
@@ -159,7 +161,7 @@ pub fn print_attack_paths(graph: &Graph, start_id: &str, max_paths: usize) {
             if visited_global.contains(&edge.target) { continue; }
 
             let mut new_path = path.clone();
-            new_path.push((edge.target.clone(), edge.kind.clone()));
+            new_path.push((edge.target.clone(), edge.kind.to_string()));
 
             if let Some(tgt) = graph.node(&edge.target) {
                 if tgt.high_value && !found_targets.contains(&edge.target) {
@@ -197,7 +199,8 @@ pub fn print_attack_paths(graph: &Graph, start_id: &str, max_paths: usize) {
                 println!("  {col}{BOLD}{name}{RESET}{tag}");
             } else {
                 // Find the edge between previous and this node
-                let dummy = GEdge { source: String::new(), target: String::new(), kind: edge_kind.clone() };
+                let parsed_kind = EdgeKind::from_str(edge_kind).unwrap_or(EdgeKind::Unknown);
+                let dummy = GEdge { source: String::new(), target: String::new(), kind: parsed_kind };
                 let ecol = dummy.color_code();
                 let hv_m = if hv { format!(" {YELLOW}* HIGH VALUE{RESET}") } else { String::new() };
                 println!("  {DIM}│{RESET}");
