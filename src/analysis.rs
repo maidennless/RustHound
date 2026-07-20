@@ -9,7 +9,7 @@ use crate::ad::PropertyAccess;
 
 use crate::ParsedDataset;
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct AnalysisReport {
     pub domain_name:              String,
     pub domain_sid:               String,
@@ -23,14 +23,14 @@ pub struct AnalysisReport {
     pub admin_edges:              Vec<AdminEdge>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct TierZeroGroup {
     pub object_id: String,
     pub name:      String,
     pub members:   usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct KerberoastableUser {
     pub object_id:  String,
     pub name:       String,
@@ -39,21 +39,21 @@ pub struct KerberoastableUser {
     pub spns:       Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct AsrepUser {
     pub object_id: String,
     pub name:      String,
     pub enabled:   bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct UnconstrainedComputer {
     pub object_id: String,
     pub name:      String,
     pub os:        Option<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, serde::Serialize)]
 pub struct AceSummary {
     pub total:             usize,
     pub generic_all:       usize,
@@ -66,20 +66,20 @@ pub struct AceSummary {
     pub dcsync:            usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct MemberEdge {
     pub member_id:   String,
     pub member_type: String,
     pub group_id:    String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct SessionEdge {
     pub computer_id: String,
     pub user_sid:    String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct AdminEdge {
     pub principal_id:   String,
     pub principal_type: String,

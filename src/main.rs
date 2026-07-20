@@ -146,25 +146,8 @@ fn main() -> anyhow::Result<()> {
             let reports = analysis::analyze(&dataset);
 
             if json {
-                println!("[");
-                for (i, r) in reports.iter().enumerate() {
-                    print!("  {{\"domain\":\"{}\",\"tier_zero_groups\":{},\
-                             \"kerberoastable\":{},\"asrep_roastable\":{},\
-                             \"unconstrained\":{},\"total_aces\":{},\
-                             \"member_edges\":{},\"session_edges\":{},\"admin_edges\":{}}}",
-                        r.domain_name,
-                        r.tier_zero_groups.len(),
-                        r.kerberoastable.len(),
-                        r.asrep_roastable.len(),
-                        r.unconstrained_computers.len(),
-                        r.ace_summary.total,
-                        r.member_edges.len(),
-                        r.session_edges.len(),
-                        r.admin_edges.len());
-                    if i + 1 < reports.len() { print!(","); }
-                    println!();
-                }
-                println!("]");
+                let output = serde_json::to_string_pretty(&reports)?;
+                println!("{output}");
                 return Ok(());
             }
 
