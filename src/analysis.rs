@@ -86,11 +86,11 @@ pub struct AdminEdge {
     pub computer_id:    String,
 }
 
-pub fn analyze(d: &ParsedDataset) -> Vec<AnalysisReport> {
-    d.domains.iter().map(|dom| analyze_domain(d, &dom.object_identifier, dom.name())).collect()
+pub fn analyze(d: &ParsedDataset, graph: &crate::graph_builder::Graph) -> Vec<AnalysisReport> {
+    d.domains.iter().map(|dom| analyze_domain(d, graph, &dom.object_identifier, dom.name())).collect()
 }
 
-fn analyze_domain(d: &ParsedDataset, domain_sid: &str, domain_name: &str) -> AnalysisReport {
+fn analyze_domain(d: &ParsedDataset, graph: &crate::graph_builder::Graph, domain_sid: &str, domain_name: &str) -> AnalysisReport {
 // Tier Zero groups
     let tier_zero_groups: Vec<TierZeroGroup> = d
         .groups
@@ -153,27 +153,22 @@ fn analyze_domain(d: &ParsedDataset, domain_sid: &str, domain_name: &str) -> Ana
         })
         .collect();
 
-// ACE summary
+// ACE summary — sourced from Graph edges, not re-scanned from ParsedDataset
     let mut ace_summary = AceSummary::default();
-    let all_aces = d.users.iter().flat_map(|u| u.aces.iter())
-        .chain(d.groups.iter().flat_map(|g| g.aces.iter()))
-        .chain(d.computers.iter().flat_map(|c| c.aces.iter()))
-        .chain(d.domains.iter().flat_map(|x| x.aces.iter()))
-        .chain(d.gpos.iter().flat_map(|x| x.aces.iter()))
-        .chain(d.ous.iter().flat_map(|x| x.aces.iter()));
-
-    for ace in all_aces {
-        ace_summary.total += 1;
-        match ace.right_name.as_str() {
-            "GenericAll"          => ace_summary.generic_all += 1,
-            "WriteDacl"           => ace_summary.write_dacl += 1,
-            "WriteOwner"          => ace_summary.write_owner += 1,
-            "Owns"                => ace_summary.owns += 1,
-            "GenericWrite"        => ace_summary.generic_write += 1,
-            "ForceChangePassword" => ace_summary.force_change_pass += 1,
-            "AddMember"           => ace_summary.add_member += 1,
-            "DCSync"              => ace_summary.dcsync += 1,
-            _ => {}
+    for edges in graph.edges_from.values() {
+        for e in edges {
+            use crate::edges::EdgeKind;
+            match e.kind {
+                EdgeKind::GenericAll          => { ace_summary.total += 1; ace_summary.generic_all += 1; }
+                EdgeKind::WriteDacl           => { ace_summary.total += 1; ace_summary.write_dacl += 1; }
+                EdgeKind::WriteOwner          => { ace_summary.total += 1; ace_summary.write_owner += 1; }
+                EdgeKind::Owns                => { ace_summary.total += 1; ace_summary.owns += 1; }
+                EdgeKind::GenericWrite        => { ace_summary.total += 1; ace_summary.generic_write += 1; }
+                EdgeKind::ForceChangePassword => { ace_summary.total += 1; ace_summary.force_change_pass += 1; }
+                EdgeKind::AddMember           => { ace_summary.total += 1; ace_summary.add_member += 1; }
+                EdgeKind::DCSync              => { ace_summary.total += 1; ace_summary.dcsync += 1; }
+                _ => {}
+            }
         }
     }
 

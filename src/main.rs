@@ -143,7 +143,8 @@ fn main() -> anyhow::Result<()> {
 // analyze
         Commands::Analyze { path, json } => {
             let dataset = parse_path(&path)?;
-            let reports = analysis::analyze(&dataset);
+            let graph   = graph_builder::build(&dataset);
+            let reports = analysis::analyze(&dataset, &graph);
 
             if json {
                 let output = serde_json::to_string_pretty(&reports)?;
