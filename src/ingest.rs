@@ -15,12 +15,14 @@ pub struct CollectionMeta {
     #[serde(default)]
     pub methods: i64,
     #[serde(rename = "type")]
-    pub kind:    CollectionKind,
-    pub count:   usize,
+    pub kind: CollectionKind,
+    pub count: usize,
     pub version: i32,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, strum::Display, strum::EnumString,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum CollectionKind {
     Users,
@@ -120,9 +122,27 @@ impl IngestFile {
             CollectionKind::Gpos => IngestFile::Gpos(serde_json::from_slice(bytes)?),
             CollectionKind::Ous => IngestFile::Ous(serde_json::from_slice(bytes)?),
             CollectionKind::Containers => IngestFile::Containers(serde_json::from_slice(bytes)?),
-            CollectionKind::RootCas | CollectionKind::AiaCas | CollectionKind::EnterpriseCas
-            | CollectionKind::NtAuthStores | CollectionKind::CertTemplates
-            | CollectionKind::IssuancePolicies => IngestFile::Adcs(serde_json::from_slice(bytes)?),
+            CollectionKind::RootCas
+            | CollectionKind::AiaCas
+            | CollectionKind::EnterpriseCas
+            | CollectionKind::NtAuthStores
+            | CollectionKind::CertTemplates
+            | CollectionKind::IssuancePolicies => {
+                let kind = match peek.meta.kind {
+                    CollectionKind::RootCas => crate::ad::AdcsKind::RootCa,
+                    CollectionKind::AiaCas => crate::ad::AdcsKind::AiaCa,
+                    CollectionKind::EnterpriseCas => crate::ad::AdcsKind::EnterpriseCa,
+                    CollectionKind::NtAuthStores => crate::ad::AdcsKind::NtAuthStore,
+                    CollectionKind::CertTemplates => crate::ad::AdcsKind::CertTemplate,
+                    CollectionKind::IssuancePolicies => crate::ad::AdcsKind::IssuancePolicy,
+                    _ => unreachable!(),
+                };
+                let mut file: AdcsFile = serde_json::from_slice(bytes)?;
+                for obj in &mut file.data {
+                    obj.kind = kind;
+                }
+                IngestFile::Adcs(file)
+            }
             CollectionKind::Other => IngestFile::Other,
         })
     }
@@ -159,5 +179,3 @@ impl IngestFile {
         self.len() == 0
     }
 }
-
-

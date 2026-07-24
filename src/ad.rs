@@ -34,7 +34,11 @@ impl PropertyAccess for Properties {
     fn prop_str_vec(&self, key: &str) -> Vec<String> {
         self.get(key)
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 }
@@ -147,7 +151,9 @@ pub struct AdUser {
 
 impl AdUser {
     pub fn name(&self) -> &str {
-        self.properties.prop_str("name").unwrap_or(&self.object_identifier)
+        self.properties
+            .prop_str("name")
+            .unwrap_or(&self.object_identifier)
     }
     pub fn enabled(&self) -> bool {
         self.properties.prop_bool("enabled").unwrap_or(true)
@@ -214,13 +220,17 @@ pub struct AdComputer {
 
 impl AdComputer {
     pub fn name(&self) -> &str {
-        self.properties.prop_str("name").unwrap_or(&self.object_identifier)
+        self.properties
+            .prop_str("name")
+            .unwrap_or(&self.object_identifier)
     }
     pub fn enabled(&self) -> bool {
         self.properties.prop_bool("enabled").unwrap_or(true)
     }
     pub fn unconstrained_delegation(&self) -> bool {
-        self.properties.prop_bool("unconstraineddelegation").unwrap_or(false)
+        self.properties
+            .prop_bool("unconstraineddelegation")
+            .unwrap_or(false)
     }
     pub fn operating_system(&self) -> Option<&str> {
         self.properties.prop_str("operatingsystem")
@@ -250,7 +260,9 @@ pub struct AdGroup {
 
 impl AdGroup {
     pub fn name(&self) -> &str {
-        self.properties.prop_str("name").unwrap_or(&self.object_identifier)
+        self.properties
+            .prop_str("name")
+            .unwrap_or(&self.object_identifier)
     }
     pub fn admin_count(&self) -> bool {
         self.properties.prop_bool("admincount").unwrap_or(false)
@@ -297,7 +309,9 @@ pub struct AdDomain {
 
 impl AdDomain {
     pub fn name(&self) -> &str {
-        self.properties.prop_str("name").unwrap_or(&self.object_identifier)
+        self.properties
+            .prop_str("name")
+            .unwrap_or(&self.object_identifier)
     }
 }
 
@@ -319,7 +333,9 @@ pub struct AdGpo {
 
 impl AdGpo {
     pub fn name(&self) -> &str {
-        self.properties.prop_str("name").unwrap_or(&self.object_identifier)
+        self.properties
+            .prop_str("name")
+            .unwrap_or(&self.object_identifier)
     }
 }
 
@@ -345,7 +361,9 @@ pub struct AdOu {
 
 impl AdOu {
     pub fn name(&self) -> &str {
-        self.properties.prop_str("name").unwrap_or(&self.object_identifier)
+        self.properties
+            .prop_str("name")
+            .unwrap_or(&self.object_identifier)
     }
 }
 
@@ -369,11 +387,23 @@ pub struct AdContainer {
 
 impl AdContainer {
     pub fn name(&self) -> &str {
-        self.properties.prop_str("name").unwrap_or(&self.object_identifier)
+        self.properties
+            .prop_str("name")
+            .unwrap_or(&self.object_identifier)
     }
 }
 
 // ADCS objects (cert templates, CAs, NTAuthStores, etc.)
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, strum::Display)]
+pub enum AdcsKind {
+    RootCa,
+    AiaCa,
+    EnterpriseCa,
+    NtAuthStore,
+    CertTemplate,
+    IssuancePolicy,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdcsObject {
@@ -387,16 +417,35 @@ pub struct AdcsObject {
     pub is_deleted: bool,
     #[serde(rename = "IsACLProtected")]
     pub is_acl_protected: bool,
+    #[serde(skip, default = "default_adcs_kind")]
+    pub kind: AdcsKind,
+}
+
+fn default_adcs_kind() -> AdcsKind {
+    AdcsKind::CertTemplate
 }
 
 impl AdcsObject {
     pub fn name(&self) -> &str {
-        self.properties.prop_str("name").unwrap_or(&self.object_identifier)
+        self.properties
+            .prop_str("name")
+            .unwrap_or(&self.object_identifier)
     }
 }
 
 /// All possible AD/Azure object types, for graph node tagging.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, strum::Display, strum::EnumString)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    strum::Display,
+    strum::EnumString,
+)]
 pub enum ObjectType {
     User,
     Group,
