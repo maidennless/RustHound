@@ -13,10 +13,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 use rusthound_tui::{
-    analysis,
-    graph_builder,
-    parse_path,
-    summarize,
+    analysis, graph_builder, parse_path, summarize,
     tree_view::{self, TreeConfig},
     tui,
 };
@@ -100,9 +97,7 @@ enum Commands {
     },
 
     /// Launch the interactive terminal UI (ratatui TUI).
-    Tui {
-        path: PathBuf,
-    },
+    Tui { path: PathBuf },
 }
 
 // Entry point
@@ -111,8 +106,7 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-
-// ingest
+        // ingest
         Commands::Ingest { path } => {
             let dataset = parse_path(&path)?;
             let summary = summarize(&dataset);
@@ -122,7 +116,10 @@ fn main() -> anyhow::Result<()> {
             println!("╔══════════════════════════════════════╗");
             println!("║   BloodHound CE Ingest Summary       ║");
             println!("╚══════════════════════════════════════╝");
-            println!("  Domains:    {:>4}  {:?}", summary.domains, summary.domain_names);
+            println!(
+                "  Domains:    {:>4}  {:?}",
+                summary.domains, summary.domain_names
+            );
             println!("  Users:      {:>4}", summary.users);
             println!("  Groups:     {:>4}", summary.groups);
             println!("  Computers:  {:>4}", summary.computers);
@@ -133,17 +130,29 @@ fn main() -> anyhow::Result<()> {
             println!("  Total:      {:>4}", dataset.total_objects());
             println!("  Total ACEs: {:>4}", summary.total_aces);
             println!();
-            println!("  Kerberoastable users:             {:>3}", summary.kerberoastable_users);
-            println!("  AS-REP roastable users:           {:>3}", summary.asrep_roastable_users);
-            println!("  Unconstrained delegation systems: {:>3}", summary.unconstrained_delegation_computers);
-            println!("  High-value / Tier-Zero groups:    {:>3}", summary.high_value_groups);
+            println!(
+                "  Kerberoastable users:             {:>3}",
+                summary.kerberoastable_users
+            );
+            println!(
+                "  AS-REP roastable users:           {:>3}",
+                summary.asrep_roastable_users
+            );
+            println!(
+                "  Unconstrained delegation systems: {:>3}",
+                summary.unconstrained_delegation_computers
+            );
+            println!(
+                "  High-value / Tier-Zero groups:    {:>3}",
+                summary.high_value_groups
+            );
             println!("\n  (run `analyze` or `tui` for detailed attack paths)");
         }
 
-// analyze
+        // analyze
         Commands::Analyze { path, json } => {
             let dataset = parse_path(&path)?;
-            let graph   = graph_builder::build(&dataset);
+            let graph = graph_builder::build(&dataset);
             let reports = analysis::analyze(&dataset, &graph);
 
             if json {
@@ -157,28 +166,54 @@ fn main() -> anyhow::Result<()> {
                 println!("║  Domain: {:<42} ║", r.domain_name);
                 println!("╚══════════════════════════════════════════════════════╝");
 
-                println!("\n  [Tier Zero / High-Value Groups]  ({} found)", r.tier_zero_groups.len());
+                println!(
+                    "\n  [Tier Zero / High-Value Groups]  ({} found)",
+                    r.tier_zero_groups.len()
+                );
                 for g in &r.tier_zero_groups {
                     println!("    • {}  ({} members)", g.name, g.members);
                 }
 
-                println!("\n  [Kerberoastable Users]  ({} found)", r.kerberoastable.len());
-                if r.kerberoastable.is_empty() { println!("    None"); }
+                println!(
+                    "\n  [Kerberoastable Users]  ({} found)",
+                    r.kerberoastable.len()
+                );
+                if r.kerberoastable.is_empty() {
+                    println!("    None");
+                }
                 for u in &r.kerberoastable {
                     let adm = if u.admin_count { " [ADMINCOUNT]" } else { "" };
                     println!("    • {}{}", u.name, adm);
-                    for s in &u.spns { println!("        spn: {s}"); }
+                    for s in &u.spns {
+                        println!("        spn: {s}");
+                    }
                 }
 
-                println!("\n  [AS-REP Roastable]  ({} found)", r.asrep_roastable.len());
-                if r.asrep_roastable.is_empty() { println!("    None"); }
+                println!(
+                    "\n  [AS-REP Roastable]  ({} found)",
+                    r.asrep_roastable.len()
+                );
+                if r.asrep_roastable.is_empty() {
+                    println!("    None");
+                }
                 for u in &r.asrep_roastable {
-                    println!("    • {}  [{}]", u.name, if u.enabled { "enabled" } else { "disabled" });
+                    println!(
+                        "    • {}  [{}]",
+                        u.name,
+                        if u.enabled { "enabled" } else { "disabled" }
+                    );
                 }
 
-                println!("\n  [Unconstrained Delegation]  ({} found)", r.unconstrained_computers.len());
+                println!(
+                    "\n  [Unconstrained Delegation]  ({} found)",
+                    r.unconstrained_computers.len()
+                );
                 for c in &r.unconstrained_computers {
-                    println!("    !  {}  ({})", c.name, c.os.as_deref().unwrap_or("unknown OS"));
+                    println!(
+                        "    !  {}  ({})",
+                        c.name,
+                        c.os.as_deref().unwrap_or("unknown OS")
+                    );
                 }
 
                 println!("\n  [ACE Breakdown]  (total: {})", r.ace_summary.total);
@@ -186,8 +221,14 @@ fn main() -> anyhow::Result<()> {
                 println!("    WriteDacl:           {:>4}", r.ace_summary.write_dacl);
                 println!("    WriteOwner:          {:>4}", r.ace_summary.write_owner);
                 println!("    Owns:                {:>4}", r.ace_summary.owns);
-                println!("    GenericWrite:        {:>4}", r.ace_summary.generic_write);
-                println!("    ForceChangePassword: {:>4}", r.ace_summary.force_change_pass);
+                println!(
+                    "    GenericWrite:        {:>4}",
+                    r.ace_summary.generic_write
+                );
+                println!(
+                    "    ForceChangePassword: {:>4}",
+                    r.ace_summary.force_change_pass
+                );
                 println!("    AddMember:           {:>4}", r.ace_summary.add_member);
                 println!("    DCSync:              {:>4}", r.ace_summary.dcsync);
 
@@ -198,10 +239,17 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-// tree
-        Commands::Tree { path, from, depth, attack, max_children, tier_zero } => {
+        // tree
+        Commands::Tree {
+            path,
+            from,
+            depth,
+            attack,
+            max_children,
+            tier_zero,
+        } => {
             let dataset = parse_path(&path)?;
-            let graph   = graph_builder::build(&dataset);
+            let graph = graph_builder::build(&dataset);
 
             if tier_zero {
                 tree_view::print_tier_zero(&graph);
@@ -228,10 +276,13 @@ fn main() -> anyhow::Result<()> {
                 }
                 None => {
                     // Default: find the first non-synthetic user that isn't NT AUTHORITY/…
-                    graph.all_nodes()
-                        .filter(|n| matches!(n.kind, graph_builder::NodeKind::User)
-                            && !n.name.starts_with("NT AUTHORITY")
-                            && !n.name.contains("S-1-5"))
+                    graph
+                        .all_nodes()
+                        .filter(|n| {
+                            matches!(n.kind, graph_builder::NodeKind::User)
+                                && !n.name.starts_with("NT AUTHORITY")
+                                && !n.name.contains("S-1-5")
+                        })
                         .min_by_key(|n| n.name.clone())
                         .map(|n| n.id.clone())
                         .ok_or_else(|| anyhow::anyhow!("No users found in dataset"))?
@@ -239,8 +290,8 @@ fn main() -> anyhow::Result<()> {
             };
 
             let cfg = TreeConfig {
-                max_depth:    depth,
-                attack_only:  attack,
+                max_depth: depth,
+                attack_only: attack,
                 max_children,
                 show_disabled: true,
             };
@@ -248,14 +299,17 @@ fn main() -> anyhow::Result<()> {
             println!();
             tree_view::print_tree(&graph, &start_id, &cfg);
             println!();
-            println!("\x1b[2mGraph: {} nodes  {} edges — use --depth N for deeper traversal\x1b[0m",
-                graph.node_count(), graph.edge_count());
+            println!(
+                "\x1b[2mGraph: {} nodes  {} edges — use --depth N for deeper traversal\x1b[0m",
+                graph.node_count(),
+                graph.edge_count()
+            );
         }
 
-// paths
+        // paths
         Commands::Paths { path, from, max } => {
             let dataset = parse_path(&path)?;
-            let graph   = graph_builder::build(&dataset);
+            let graph = graph_builder::build(&dataset);
 
             let matches = graph.find_all(&from);
             if matches.len() > 1 {
@@ -266,7 +320,8 @@ fn main() -> anyhow::Result<()> {
                 anyhow::bail!("Please choose a more specific name or use the object ID.");
             }
 
-            let start_id = matches.first()
+            let start_id = matches
+                .first()
                 .map(|n| n.id.clone())
                 .ok_or_else(|| anyhow::anyhow!("Node '{}' not found", from))?;
 
@@ -274,13 +329,16 @@ fn main() -> anyhow::Result<()> {
             tree_view::print_attack_paths(&graph, &start_id, max);
         }
 
-// tui
+        // tui
         Commands::Tui { path } => {
             let dataset = parse_path(&path)?;
-            let graph   = graph_builder::build(&dataset);
+            let graph = graph_builder::build(&dataset);
 
-            eprintln!("Building graph: {} nodes, {} edges",
-                graph.node_count(), graph.edge_count());
+            eprintln!(
+                "Building graph: {} nodes, {} edges",
+                graph.node_count(),
+                graph.edge_count()
+            );
 
             tui::run_tui(&graph)?;
         }

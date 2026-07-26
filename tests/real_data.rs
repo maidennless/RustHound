@@ -30,7 +30,10 @@ fn parses_users_file() {
 
         // Second entry: ansible_dev$ gMSA — exercise typed accessors.
         let ansible = &uf.data[1];
-        assert_eq!(ansible.properties.prop_str("samaccountname"), Some("ansible_dev$"));
+        assert_eq!(
+            ansible.properties.prop_str("samaccountname"),
+            Some("ansible_dev$")
+        );
         assert!(ansible.enabled());
         assert!(!ansible.has_spn());
         assert!(!ansible.aces.is_empty(), "ansible_dev$ should have ACEs");
@@ -75,7 +78,10 @@ fn parses_computers_file_with_nested_collections() {
     if let IngestFile::Computers(cf) = f {
         let dc = &cf.data[0];
         assert_eq!(dc.name(), "DC01.TOMBWATCHER.HTB");
-        assert!(dc.unconstrained_delegation(), "DC01 has unconstrained delegation in fixture");
+        assert!(
+            dc.unconstrained_delegation(),
+            "DC01 has unconstrained delegation in fixture"
+        );
         assert_eq!(dc.operating_system(), Some("Windows Server 2019 Standard"));
         assert!(dc.local_admins.collected);
         assert_eq!(dc.local_admins.results.len(), 3);
@@ -110,10 +116,18 @@ fn parses_gpos_ous_containers() {
 
 #[test]
 fn full_dataset_round_trip_counts() {
-    let total: usize = ["users", "groups", "computers", "domains", "gpos", "ous", "containers"]
-        .iter()
-        .map(|name| IngestFile::parse(fixture(name)).unwrap().len())
-        .sum();
+    let total: usize = [
+        "users",
+        "groups",
+        "computers",
+        "domains",
+        "gpos",
+        "ous",
+        "containers",
+    ]
+    .iter()
+    .map(|name| IngestFile::parse(fixture(name)).unwrap().len())
+    .sum();
     // 9 + 53 + 1 + 1 + 2 + 2 + 19 = 87
     assert_eq!(total, 87);
 }

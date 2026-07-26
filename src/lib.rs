@@ -4,7 +4,11 @@
 //! them into typed AD structures, the same way upstream BloodHound's Go
 //! ingestion service does.
 
-use std::{fs::File, io::Read, path::{Path, PathBuf}};
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 use crate::ad::{AdComputer, AdContainer, AdDomain, AdGpo, AdGroup, AdOu, AdUser, AdcsObject};
@@ -40,12 +44,12 @@ pub type Result<T> = std::result::Result<T, IngestError>;
 /// object collected, bucketed by type.
 #[derive(Debug, Default)]
 pub struct ParsedDataset {
-    pub users:      Vec<AdUser>,
-    pub groups:     Vec<AdGroup>,
-    pub computers:  Vec<AdComputer>,
-    pub domains:    Vec<AdDomain>,
-    pub gpos:       Vec<AdGpo>,
-    pub ous:        Vec<AdOu>,
+    pub users: Vec<AdUser>,
+    pub groups: Vec<AdGroup>,
+    pub computers: Vec<AdComputer>,
+    pub domains: Vec<AdDomain>,
+    pub gpos: Vec<AdGpo>,
+    pub ous: Vec<AdOu>,
     pub containers: Vec<AdContainer>,
     pub adcs: Vec<AdcsObject>,
     pub files_seen: Vec<String>,
@@ -119,13 +123,24 @@ pub fn parse_path(path: &Path) -> Result<ParsedDataset> {
         return parse_directory(path);
     }
 
-    if path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("zip")) {
+    if path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+    {
         let file = File::open(path)?;
         return parse_zip(file);
     }
 
-    if path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("json")) {
-        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "input.json".to_string());
+    if path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
+    {
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "input.json".to_string());
         let bytes = std::fs::read(path)?;
         let file = parse_json_bytes(&name, &bytes)?;
         let mut dataset = ParsedDataset::default();
@@ -146,7 +161,10 @@ fn parse_directory(dir: &Path) -> Result<ParsedDataset> {
 
     let mut dataset = ParsedDataset::default();
     for path in files {
-        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "input.json".to_string());
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "input.json".to_string());
         let bytes = std::fs::read(&path)?;
         let file = parse_json_bytes(&name, &bytes)?;
         dataset.absorb(file, &name);
@@ -162,7 +180,10 @@ fn collect_json_files(dir: &Path, files: &mut Vec<PathBuf>) -> std::io::Result<(
         if path.is_dir() {
             collect_json_files(&path, files)?;
         } else if path.is_file()
-            && path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
+            && path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
         {
             files.push(path);
         }
@@ -205,14 +226,26 @@ pub fn summarize(d: &ParsedDataset) -> DatasetSummary {
         containers: d.containers.len(),
         domains: d.domains.len(),
         total_aces,
-        kerberoastable_users: d.users.iter().filter(|u| u.has_spn() && u.enabled()).count(),
-        asrep_roastable_users: d.users.iter().filter(|u| u.dont_req_preauth() && u.enabled()).count(),
+        kerberoastable_users: d
+            .users
+            .iter()
+            .filter(|u| u.has_spn() && u.enabled())
+            .count(),
+        asrep_roastable_users: d
+            .users
+            .iter()
+            .filter(|u| u.dont_req_preauth() && u.enabled())
+            .count(),
         unconstrained_delegation_computers: d
             .computers
             .iter()
             .filter(|c| c.unconstrained_delegation())
             .count(),
-        high_value_groups: d.groups.iter().filter(|g| g.is_high_value_name() || g.admin_count()).count(),
+        high_value_groups: d
+            .groups
+            .iter()
+            .filter(|g| g.is_high_value_name() || g.admin_count())
+            .count(),
         domain_names: d.domains.iter().map(|dm| dm.name().to_string()).collect(),
     }
 }
