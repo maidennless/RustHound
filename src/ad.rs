@@ -427,9 +427,50 @@ fn default_adcs_kind() -> AdcsKind {
 
 impl AdcsObject {
     pub fn name(&self) -> &str {
-        self.properties
-            .prop_str("name")
-            .unwrap_or(&self.object_identifier)
+        self.properties.prop_str("name").unwrap_or(&self.object_identifier)
+    }
+
+    pub fn domain_sid(&self) -> Option<&str> {
+        self.properties.prop_str("domainsid")
+    }
+
+    // --- CertTemplate-specific accessors (only meaningful when self.kind == AdcsKind::CertTemplate) ---
+
+    pub fn schema_version(&self) -> Option<i64> {
+        self.properties.prop_i64("schemaversion")
+    }
+    pub fn enrollee_supplies_subject(&self) -> bool {
+        self.properties.prop_bool("enrolleesuppliessubject").unwrap_or(false)
+    }
+    pub fn requires_manager_approval(&self) -> bool {
+        self.properties.prop_bool("requiresmanagerapproval").unwrap_or(false)
+    }
+    pub fn authentication_enabled(&self) -> bool {
+        self.properties.prop_bool("authenticationenabled").unwrap_or(false)
+    }
+    pub fn authorized_signatures_required(&self) -> Option<i64> {
+        self.properties.prop_i64("authorizedsignatures")
+    }
+    pub fn effective_ekus(&self) -> Vec<String> {
+        self.properties.prop_str_vec("effectiveekus")
+    }
+
+    // --- EnterpriseCA-specific accessors (only meaningful when self.kind == AdcsKind::EnterpriseCa) ---
+
+    pub fn ca_name(&self) -> Option<&str> {
+        self.properties.prop_str("caname")
+    }
+    pub fn dns_hostname(&self) -> Option<&str> {
+        self.properties.prop_str("dnshostname")
+    }
+    pub fn ca_security_collected(&self) -> bool {
+        self.properties.prop_bool("casecuritycollected").unwrap_or(false)
+    }
+    pub fn is_user_specifies_san_enabled(&self) -> bool {
+        self.properties.prop_bool("isuserspecifiessanenabled").unwrap_or(false)
+    }
+    pub fn has_enrollment_agent_restrictions(&self) -> bool {
+        self.properties.prop_bool("hasenrollmentagentrestrictions").unwrap_or(false)
     }
 }
 
