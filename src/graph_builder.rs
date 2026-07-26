@@ -16,32 +16,44 @@ use crate::ParsedDataset;
 
 #[derive(Debug, Clone)]
 pub struct GNode {
-    pub id:           String,
-    pub name:         String,
-    pub kind:         NodeKind,
-    pub enabled:      bool,
-    pub high_value:   bool,
-    pub admin_count:  bool,
-    pub domain_sid:   Option<String>,
+    pub id: String,
+    pub name: String,
+    pub kind: NodeKind,
+    pub enabled: bool,
+    pub high_value: bool,
+    pub admin_count: bool,
+    pub domain_sid: Option<String>,
+    pub adcs_kind: Option<crate::ad::AdcsKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NodeKind {
-    User, Group, Computer, Domain, Gpo, Ou, Container, Adcs,
+    User,
+    Group,
+    Computer,
+    Domain,
+    Gpo,
+    Ou,
+    Container,
+    Adcs,
 }
 
 impl std::fmt::Display for NodeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            NodeKind::User      => "User",
-            NodeKind::Group     => "Group",
-            NodeKind::Computer  => "Computer",
-            NodeKind::Domain    => "Domain",
-            NodeKind::Gpo       => "GPO",
-            NodeKind::Ou        => "OU",
-            NodeKind::Container => "Container",
-            NodeKind::Adcs      => "ADCS",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                NodeKind::User => "User",
+                NodeKind::Group => "Group",
+                NodeKind::Computer => "Computer",
+                NodeKind::Domain => "Domain",
+                NodeKind::Gpo => "GPO",
+                NodeKind::Ou => "OU",
+                NodeKind::Container => "Container",
+                NodeKind::Adcs => "ADCS",
+            }
+        )
     }
 }
 
@@ -51,7 +63,7 @@ impl std::fmt::Display for NodeKind {
 pub struct GEdge {
     pub source: String,
     pub target: String,
-    pub kind:   EdgeKind,
+    pub kind: EdgeKind,
 }
 
 impl GEdge {
@@ -59,34 +71,47 @@ impl GEdge {
     pub fn is_attack_edge(&self) -> bool {
         matches!(
             self.kind,
-            EdgeKind::GenericAll | EdgeKind::GenericWrite | EdgeKind::WriteDacl
-            | EdgeKind::WriteOwner | EdgeKind::Owns
-            | EdgeKind::AllExtendedRights | EdgeKind::ForceChangePassword
-            | EdgeKind::AddMember | EdgeKind::AddSelf | EdgeKind::WriteSPN
-            | EdgeKind::AddKeyCredentialLink
-            | EdgeKind::ReadLAPSPassword | EdgeKind::ReadGMSAPassword
-            | EdgeKind::DCSync | EdgeKind::GetChanges | EdgeKind::GetChangesAll
-            | EdgeKind::AdminTo | EdgeKind::HasSession
-            | EdgeKind::CanRDP | EdgeKind::CanPSRemote | EdgeKind::ExecuteDCOM
-            | EdgeKind::AllowedToDelegate | EdgeKind::AllowedToAct
+            EdgeKind::GenericAll
+                | EdgeKind::GenericWrite
+                | EdgeKind::WriteDacl
+                | EdgeKind::WriteOwner
+                | EdgeKind::Owns
+                | EdgeKind::AllExtendedRights
+                | EdgeKind::ForceChangePassword
+                | EdgeKind::AddMember
+                | EdgeKind::AddSelf
+                | EdgeKind::WriteSPN
+                | EdgeKind::AddKeyCredentialLink
+                | EdgeKind::ReadLAPSPassword
+                | EdgeKind::ReadGMSAPassword
+                | EdgeKind::DCSync
+                | EdgeKind::GetChanges
+                | EdgeKind::GetChangesAll
+                | EdgeKind::AdminTo
+                | EdgeKind::HasSession
+                | EdgeKind::CanRDP
+                | EdgeKind::CanPSRemote
+                | EdgeKind::ExecuteDCOM
+                | EdgeKind::AllowedToDelegate
+                | EdgeKind::AllowedToAct
         )
     }
 
     /// ANSI colour for this edge kind.
     pub fn color_code(&self) -> &'static str {
         match self.kind {
-            EdgeKind::MemberOf | EdgeKind::Contains => "\x1b[34m",      // blue
-            EdgeKind::AdminTo | EdgeKind::HasSession => "\x1b[33m",     // yellow
-            EdgeKind::GenericAll | EdgeKind::Owns    => "\x1b[31m",     // red
+            EdgeKind::MemberOf | EdgeKind::Contains => "\x1b[34m", // blue
+            EdgeKind::AdminTo | EdgeKind::HasSession => "\x1b[33m", // yellow
+            EdgeKind::GenericAll | EdgeKind::Owns => "\x1b[31m",   // red
             EdgeKind::WriteDacl | EdgeKind::WriteOwner | EdgeKind::GenericWrite => "\x1b[91m", // bright red
-            EdgeKind::ForceChangePassword | EdgeKind::DCSync => "\x1b[31;1m",         // bold red
-            EdgeKind::AddMember | EdgeKind::AddSelf  => "\x1b[35m",    // magenta
-            EdgeKind::AllExtendedRights              => "\x1b[91m",    // bright red
-            EdgeKind::ReadLAPSPassword | EdgeKind::ReadGMSAPassword => "\x1b[33;1m",  // bright yellow
-            EdgeKind::WriteSPN | EdgeKind::AddKeyCredentialLink     => "\x1b[95m",    // bright magenta
-            EdgeKind::CanRDP | EdgeKind::CanPSRemote | EdgeKind::ExecuteDCOM => "\x1b[36m",  // cyan
-            EdgeKind::AllowedToDelegate | EdgeKind::AllowedToAct    => "\x1b[93m",   // bright yellow
-            _                        => "\x1b[37m",    // white
+            EdgeKind::ForceChangePassword | EdgeKind::DCSync => "\x1b[31;1m", // bold red
+            EdgeKind::AddMember | EdgeKind::AddSelf => "\x1b[35m",            // magenta
+            EdgeKind::AllExtendedRights => "\x1b[91m",                        // bright red
+            EdgeKind::ReadLAPSPassword | EdgeKind::ReadGMSAPassword => "\x1b[33;1m", // bright yellow
+            EdgeKind::WriteSPN | EdgeKind::AddKeyCredentialLink => "\x1b[95m", // bright magenta
+            EdgeKind::CanRDP | EdgeKind::CanPSRemote | EdgeKind::ExecuteDCOM => "\x1b[36m", // cyan
+            EdgeKind::AllowedToDelegate | EdgeKind::AllowedToAct => "\x1b[93m", // bright yellow
+            _ => "\x1b[37m",                                                   // white
         }
     }
 }
@@ -94,11 +119,11 @@ impl GEdge {
 // Graph
 
 pub struct Graph {
-    pub nodes:       HashMap<String, GNode>,         // id → node
-    pub edges_from:  HashMap<String, Vec<GEdge>>,    // source id → outgoing edges
-    pub edges_to:    HashMap<String, Vec<GEdge>>,    // target id → incoming edges
+    pub nodes: HashMap<String, GNode>,           // id → node
+    pub edges_from: HashMap<String, Vec<GEdge>>, // source id → outgoing edges
+    pub edges_to: HashMap<String, Vec<GEdge>>,   // target id → incoming edges
     /// name (uppercase) → matching node ids, for case-insensitive name lookup
-    name_index:     HashMap<String, Vec<String>>,
+    name_index: HashMap<String, Vec<String>>,
 }
 
 impl Graph {
@@ -152,7 +177,9 @@ impl Graph {
         self.nodes.values()
     }
 
-    pub fn node_count(&self) -> usize { self.nodes.len() }
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
     pub fn edge_count(&self) -> usize {
         self.edges_from.values().map(|v| v.len()).sum()
     }
@@ -161,34 +188,41 @@ impl Graph {
 // Builder
 
 pub fn build(dataset: &ParsedDataset) -> Graph {
-    let mut nodes:      HashMap<String, GNode>      = HashMap::new();
+    let mut nodes: HashMap<String, GNode> = HashMap::new();
     let mut edges_from: HashMap<String, Vec<GEdge>> = HashMap::new();
-    let mut edges_to:   HashMap<String, Vec<GEdge>> = HashMap::new();
+    let mut edges_to: HashMap<String, Vec<GEdge>> = HashMap::new();
 
     macro_rules! add_edge {
         ($src:expr, $tgt:expr, $kind:expr) => {{
             let e = GEdge {
                 source: $src.to_string(),
                 target: $tgt.to_string(),
-                kind:   $kind,
+                kind: $kind,
             };
-            edges_from.entry($src.to_string()).or_default().push(e.clone());
+            edges_from
+                .entry($src.to_string())
+                .or_default()
+                .push(e.clone());
             edges_to.entry($tgt.to_string()).or_default().push(e);
         }};
     }
 
-// Users
+    // Users
     for u in &dataset.users {
         let name = u.name().to_string();
-        nodes.insert(u.object_identifier.clone(), GNode {
-            id:          u.object_identifier.clone(),
-            name:        name.clone(),
-            kind:        NodeKind::User,
-            enabled:     u.enabled(),
-            high_value:  u.properties.prop_bool("highvalue").unwrap_or(false),
-            admin_count: u.admin_count(),
-            domain_sid:  u.domain_sid().map(str::to_string),
-        });
+        nodes.insert(
+            u.object_identifier.clone(),
+            GNode {
+                id: u.object_identifier.clone(),
+                name: name.clone(),
+                kind: NodeKind::User,
+                enabled: u.enabled(),
+                high_value: u.properties.prop_bool("highvalue").unwrap_or(false),
+                admin_count: u.admin_count(),
+                domain_sid: u.domain_sid().map(str::to_string),
+                adcs_kind: None,
+            },
+        );
         for ace in &u.aces {
             let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
             add_edge!(ace.principal_sid, u.object_identifier, kind);
@@ -198,21 +232,25 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-// Groups
+    // Groups
     for g in &dataset.groups {
         let name = g.name().to_string();
         let hv = g.is_high_value_name()
             || g.admin_count()
             || g.properties.prop_bool("highvalue").unwrap_or(false);
-        nodes.insert(g.object_identifier.clone(), GNode {
-            id:          g.object_identifier.clone(),
-            name:        name.clone(),
-            kind:        NodeKind::Group,
-            enabled:     true,
-            high_value:  hv,
-            admin_count: g.admin_count(),
-            domain_sid:  g.domain_sid().map(str::to_string),
-        });
+        nodes.insert(
+            g.object_identifier.clone(),
+            GNode {
+                id: g.object_identifier.clone(),
+                name: name.clone(),
+                kind: NodeKind::Group,
+                enabled: true,
+                high_value: hv,
+                admin_count: g.admin_count(),
+                domain_sid: g.domain_sid().map(str::to_string),
+                adcs_kind: None,
+            },
+        );
         // MemberOf edges: member → MemberOf → group
         for m in &g.members {
             add_edge!(m.object_identifier, g.object_identifier, EdgeKind::MemberOf);
@@ -223,18 +261,22 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-// Computers
+    // Computers
     for c in &dataset.computers {
         let name = c.name().to_string();
-        nodes.insert(c.object_identifier.clone(), GNode {
-            id:          c.object_identifier.clone(),
-            name:        name.clone(),
-            kind:        NodeKind::Computer,
-            enabled:     c.enabled(),
-            high_value:  c.properties.prop_bool("highvalue").unwrap_or(false),
-            admin_count: false,
-            domain_sid:  c.domain_sid().map(str::to_string),
-        });
+        nodes.insert(
+            c.object_identifier.clone(),
+            GNode {
+                id: c.object_identifier.clone(),
+                name: name.clone(),
+                kind: NodeKind::Computer,
+                enabled: c.enabled(),
+                high_value: c.properties.prop_bool("highvalue").unwrap_or(false),
+                admin_count: false,
+                domain_sid: c.domain_sid().map(str::to_string),
+                adcs_kind: None,
+            },
+        );
         for ace in &c.aces {
             let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
             add_edge!(ace.principal_sid, c.object_identifier, kind);
@@ -249,91 +291,138 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
             add_edge!(p.object_identifier, c.object_identifier, EdgeKind::CanRDP);
         }
         for p in &c.ps_remote_users.results {
-            add_edge!(p.object_identifier, c.object_identifier, EdgeKind::CanPSRemote);
+            add_edge!(
+                p.object_identifier,
+                c.object_identifier,
+                EdgeKind::CanPSRemote
+            );
         }
         for p in &c.dcom_users.results {
-            add_edge!(p.object_identifier, c.object_identifier, EdgeKind::ExecuteDCOM);
+            add_edge!(
+                p.object_identifier,
+                c.object_identifier,
+                EdgeKind::ExecuteDCOM
+            );
         }
         for p in &c.allowed_to_act {
-            add_edge!(p.object_identifier, c.object_identifier, EdgeKind::AllowedToAct);
+            add_edge!(
+                p.object_identifier,
+                c.object_identifier,
+                EdgeKind::AllowedToAct
+            );
         }
     }
 
-// Domains
+    // Domains
     for d in &dataset.domains {
-        nodes.insert(d.object_identifier.clone(), GNode {
-            id:          d.object_identifier.clone(),
-            name:        d.name().to_string(),
-            kind:        NodeKind::Domain,
-            enabled:     true,
-            high_value:  true,
-            admin_count: false,
-            domain_sid:  Some(d.object_identifier.clone()),
-        });
+        nodes.insert(
+            d.object_identifier.clone(),
+            GNode {
+                id: d.object_identifier.clone(),
+                name: d.name().to_string(),
+                kind: NodeKind::Domain,
+                enabled: true,
+                high_value: true,
+                admin_count: false,
+                domain_sid: Some(d.object_identifier.clone()),
+                adcs_kind: None,
+            },
+        );
         for ace in &d.aces {
             let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
             add_edge!(ace.principal_sid, d.object_identifier, kind);
         }
     }
 
-// GPOs
+    // GPOs
     for g in &dataset.gpos {
-        nodes.insert(g.object_identifier.clone(), GNode {
-            id: g.object_identifier.clone(), name: g.name().to_string(),
-            kind: NodeKind::Gpo, enabled: true, high_value: false,
-            admin_count: false, domain_sid: None,
-        });
+        nodes.insert(
+            g.object_identifier.clone(),
+            GNode {
+                id: g.object_identifier.clone(),
+                name: g.name().to_string(),
+                kind: NodeKind::Gpo,
+                enabled: true,
+                high_value: false,
+                admin_count: false,
+                domain_sid: None,
+                adcs_kind: None,
+            },
+        );
         for ace in &g.aces {
             let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
             add_edge!(ace.principal_sid, g.object_identifier, kind);
         }
     }
 
-// OUs
+    // OUs
     for o in &dataset.ous {
-        nodes.insert(o.object_identifier.clone(), GNode {
-            id: o.object_identifier.clone(), name: o.name().to_string(),
-            kind: NodeKind::Ou, enabled: true, high_value: false,
-            admin_count: false, domain_sid: None,
-        });
+        nodes.insert(
+            o.object_identifier.clone(),
+            GNode {
+                id: o.object_identifier.clone(),
+                name: o.name().to_string(),
+                kind: NodeKind::Ou,
+                enabled: true,
+                high_value: false,
+                admin_count: false,
+                domain_sid: None,
+                adcs_kind: None,
+            },
+        );
         for ace in &o.aces {
             let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
             add_edge!(ace.principal_sid, o.object_identifier, kind);
         }
     }
 
-// Containers
+    // Containers
     for c in &dataset.containers {
-        nodes.insert(c.object_identifier.clone(), GNode {
-            id: c.object_identifier.clone(), name: c.name().to_string(),
-            kind: NodeKind::Container, enabled: true, high_value: false,
-            admin_count: false, domain_sid: None,
-        });
+        nodes.insert(
+            c.object_identifier.clone(),
+            GNode {
+                id: c.object_identifier.clone(),
+                name: c.name().to_string(),
+                kind: NodeKind::Container,
+                enabled: true,
+                high_value: false,
+                admin_count: false,
+                domain_sid: None,
+                adcs_kind: None,
+            },
+        );
     }
 
-// ADCS objects (cert templates, CAs, etc.)
+    // ADCS objects (cert templates, CAs, etc.)
     for a in &dataset.adcs {
         let name = a.name().to_string();
-        nodes.insert(a.object_identifier.clone(), GNode {
-            id: a.object_identifier.clone(),
-            name: name.clone(),
-            kind: NodeKind::Adcs,
-            enabled: true,
-            high_value: a.properties.prop_bool("highvalue").unwrap_or(false),
-            admin_count: false,
-            domain_sid: a.properties.prop_str("domainsid").map(str::to_string),
-        });
+        nodes.insert(
+            a.object_identifier.clone(),
+            GNode {
+                id: a.object_identifier.clone(),
+                name: name.clone(),
+                kind: NodeKind::Adcs,
+                enabled: true,
+                high_value: a.properties.prop_bool("highvalue").unwrap_or(false),
+                admin_count: false,
+                domain_sid: a.properties.prop_str("domainsid").map(str::to_string),
+                adcs_kind: Some(a.kind),
+            },
+        );
         for ace in &a.aces {
             let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
             add_edge!(ace.principal_sid, a.object_identifier, kind);
         }
     }
 
-// Name index
+    // Name index
     let mut name_index: HashMap<String, Vec<String>> = HashMap::new();
     for (id, n) in &nodes {
         let full_key = n.name.to_uppercase();
-        name_index.entry(full_key.clone()).or_default().push(id.clone());
+        name_index
+            .entry(full_key.clone())
+            .or_default()
+            .push(id.clone());
 
         if let Some(short_name) = n.name.split('@').next() {
             let short_key = short_name.to_uppercase();
@@ -343,7 +432,12 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
         }
     }
 
-    Graph { nodes, edges_from, edges_to, name_index }
+    Graph {
+        nodes,
+        edges_from,
+        edges_to,
+        name_index,
+    }
 }
 
 #[cfg(test)]
@@ -353,28 +447,42 @@ mod tests {
     #[test]
     fn find_all_returns_every_name_match() {
         let mut nodes = HashMap::new();
-        nodes.insert("id-1".to_string(), GNode {
-            id: "id-1".to_string(),
-            name: "john".to_string(),
-            kind: NodeKind::User,
-            enabled: true,
-            high_value: false,
-            admin_count: false,
-            domain_sid: None,
-        });
-        nodes.insert("id-2".to_string(), GNode {
-            id: "id-2".to_string(),
-            name: "JOHN".to_string(),
-            kind: NodeKind::User,
-            enabled: true,
-            high_value: false,
-            admin_count: false,
-            domain_sid: None,
-        });
+        nodes.insert(
+            "id-1".to_string(),
+            GNode {
+                id: "id-1".to_string(),
+                name: "john".to_string(),
+                kind: NodeKind::User,
+                enabled: true,
+                high_value: false,
+                admin_count: false,
+                domain_sid: None,
+                adcs_kind: None,
+            },
+        );
+        nodes.insert(
+            "id-2".to_string(),
+            GNode {
+                id: "id-2".to_string(),
+                name: "JOHN".to_string(),
+                kind: NodeKind::User,
+                enabled: true,
+                high_value: false,
+                admin_count: false,
+                domain_sid: None,
+                adcs_kind: None,
+            },
+        );
 
         let mut name_index: HashMap<String, Vec<String>> = HashMap::new();
-        name_index.entry("JOHN".to_uppercase()).or_default().push("id-1".to_string());
-        name_index.entry("JOHN".to_uppercase()).or_default().push("id-2".to_string());
+        name_index
+            .entry("JOHN".to_uppercase())
+            .or_default()
+            .push("id-1".to_string());
+        name_index
+            .entry("JOHN".to_uppercase())
+            .or_default()
+            .push("id-2".to_string());
 
         let graph = Graph {
             nodes,
@@ -392,29 +500,40 @@ mod tests {
     #[test]
     fn find_all_matches_short_name_without_domain() {
         let mut nodes = HashMap::new();
-        nodes.insert("id-1".to_string(), GNode {
-            id: "id-1".to_string(),
-            name: "john@domain1".to_string(),
-            kind: NodeKind::User,
-            enabled: true,
-            high_value: false,
-            admin_count: false,
-            domain_sid: None,
-        });
-        nodes.insert("id-2".to_string(), GNode {
-            id: "id-2".to_string(),
-            name: "john@domain2".to_string(),
-            kind: NodeKind::User,
-            enabled: true,
-            high_value: false,
-            admin_count: false,
-            domain_sid: None,
-        });
+        nodes.insert(
+            "id-1".to_string(),
+            GNode {
+                id: "id-1".to_string(),
+                name: "john@domain1".to_string(),
+                kind: NodeKind::User,
+                enabled: true,
+                high_value: false,
+                admin_count: false,
+                domain_sid: None,
+                adcs_kind: None,
+            },
+        );
+        nodes.insert(
+            "id-2".to_string(),
+            GNode {
+                id: "id-2".to_string(),
+                name: "john@domain2".to_string(),
+                kind: NodeKind::User,
+                enabled: true,
+                high_value: false,
+                admin_count: false,
+                domain_sid: None,
+                adcs_kind: None,
+            },
+        );
 
         let mut name_index: HashMap<String, Vec<String>> = HashMap::new();
         for (id, node) in &nodes {
             let full_key = node.name.to_uppercase();
-            name_index.entry(full_key.clone()).or_default().push(id.clone());
+            name_index
+                .entry(full_key.clone())
+                .or_default()
+                .push(id.clone());
             if let Some(short_name) = node.name.split('@').next() {
                 let short_key = short_name.to_uppercase();
                 if short_key != full_key {
@@ -435,9 +554,10 @@ mod tests {
         assert!(matches.iter().any(|n| n.id == "id-1"));
         assert!(matches.iter().any(|n| n.id == "id-2"));
     }
-#[test]
+
+    #[test]
     fn build_creates_edges_with_correct_kind() {
-        use crate::ad::{AdUser, AdGroup, Ace, TypedPrincipal};
+        use crate::ad::{Ace, AdGroup, AdUser, TypedPrincipal};
         use crate::ParsedDataset;
 
         let mut user_props = crate::ad::Properties::new();
@@ -469,7 +589,10 @@ mod tests {
         };
 
         let mut group_props = crate::ad::Properties::new();
-        group_props.insert("name".to_string(), serde_json::json!("DOMAIN USERS@TEST.LOCAL"));
+        group_props.insert(
+            "name".to_string(),
+            serde_json::json!("DOMAIN USERS@TEST.LOCAL"),
+        );
 
         let group = AdGroup {
             object_identifier: "GROUP-SID".to_string(),
@@ -499,12 +622,52 @@ mod tests {
         assert!(generic_all.is_some());
         assert_eq!(generic_all.unwrap().kind, EdgeKind::GenericAll);
         assert!(generic_all.unwrap().is_attack_edge());
-
-        let mystery_edges = graph.outgoing("MYSTERY-SID");
+let mystery_edges = graph.outgoing("MYSTERY-SID");
         let unknown_edge = mystery_edges.iter().find(|e| e.target == "USER-SID");
         assert!(unknown_edge.is_some());
         assert_eq!(unknown_edge.unwrap().kind, EdgeKind::Unknown);
         assert!(!unknown_edge.unwrap().is_attack_edge());
     }
 
+    #[test]
+    fn build_tags_adcs_nodes_with_correct_kind() {
+        use crate::ad::AdcsKind;
+        use crate::ad::AdcsObject;
+        use crate::ParsedDataset;
+
+        let cert_template = AdcsObject {
+            object_identifier: "TEMPLATE-SID".to_string(),
+            properties: crate::ad::Properties::new(),
+            aces: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::CertTemplate,
+        };
+
+        let enterprise_ca = AdcsObject {
+            object_identifier: "CA-SID".to_string(),
+            properties: crate::ad::Properties::new(),
+            aces: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::EnterpriseCa,
+        };
+
+        let mut dataset = ParsedDataset::default();
+        dataset.adcs.push(cert_template);
+        dataset.adcs.push(enterprise_ca);
+
+        let graph = build(&dataset);
+
+        let template_node = graph.node("TEMPLATE-SID").expect("template node should exist");
+        assert_eq!(template_node.kind, NodeKind::Adcs);
+        assert_eq!(template_node.adcs_kind, Some(AdcsKind::CertTemplate));
+
+        let ca_node = graph.node("CA-SID").expect("CA node should exist");
+        assert_eq!(ca_node.kind, NodeKind::Adcs);
+        assert_eq!(ca_node.adcs_kind, Some(AdcsKind::EnterpriseCa));
+
+        let user_node_placeholder: Option<&GNode> = graph.node("NONEXISTENT");
+        assert!(user_node_placeholder.is_none());
+    }
 }
