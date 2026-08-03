@@ -413,6 +413,13 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
             let kind = EdgeKind::from_str(ace.right_name.as_str()).unwrap_or(EdgeKind::Unknown);
             add_edge!(ace.principal_sid, a.object_identifier, kind);
         }
+        for tpl in &a.enabled_cert_templates {
+            add_edge!(
+                tpl.object_identifier,
+                a.object_identifier,
+                EdgeKind::PublishedTo
+            );
+        }
     }
 
     // Name index
@@ -622,7 +629,7 @@ mod tests {
         assert!(generic_all.is_some());
         assert_eq!(generic_all.unwrap().kind, EdgeKind::GenericAll);
         assert!(generic_all.unwrap().is_attack_edge());
-let mystery_edges = graph.outgoing("MYSTERY-SID");
+        let mystery_edges = graph.outgoing("MYSTERY-SID");
         let unknown_edge = mystery_edges.iter().find(|e| e.target == "USER-SID");
         assert!(unknown_edge.is_some());
         assert_eq!(unknown_edge.unwrap().kind, EdgeKind::Unknown);
@@ -639,6 +646,7 @@ let mystery_edges = graph.outgoing("MYSTERY-SID");
             object_identifier: "TEMPLATE-SID".to_string(),
             properties: crate::ad::Properties::new(),
             aces: vec![],
+            enabled_cert_templates: vec![],
             is_deleted: false,
             is_acl_protected: false,
             kind: AdcsKind::CertTemplate,
@@ -648,6 +656,7 @@ let mystery_edges = graph.outgoing("MYSTERY-SID");
             object_identifier: "CA-SID".to_string(),
             properties: crate::ad::Properties::new(),
             aces: vec![],
+            enabled_cert_templates: vec![],
             is_deleted: false,
             is_acl_protected: false,
             kind: AdcsKind::EnterpriseCa,
@@ -659,7 +668,9 @@ let mystery_edges = graph.outgoing("MYSTERY-SID");
 
         let graph = build(&dataset);
 
-        let template_node = graph.node("TEMPLATE-SID").expect("template node should exist");
+        let template_node = graph
+            .node("TEMPLATE-SID")
+            .expect("template node should exist");
         assert_eq!(template_node.kind, NodeKind::Adcs);
         assert_eq!(template_node.adcs_kind, Some(AdcsKind::CertTemplate));
 
@@ -669,5 +680,48 @@ let mystery_edges = graph.outgoing("MYSTERY-SID");
 
         let user_node_placeholder: Option<&GNode> = graph.node("NONEXISTENT");
         assert!(user_node_placeholder.is_none());
+    }
+
+    #[test]
+    fn build_creates_publishedto_edges_from_enterprise_ca() {
+        use crate::ad::{AdcsKind, AdcsObject, TypedPrincipal};
+        use crate::ParsedDataset;
+
+        let cert_template = AdcsObject {
+            object_identifier: "TEMPLATE-SID".to_string(),
+            properties: crate::ad::Properties::new(),
+            aces: vec![],
+            enabled_cert_templates: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::CertTemplate,
+        };
+
+        let enterprise_ca = AdcsObject {
+            object_identifier: "CA-SID".to_string(),
+            properties: crate::ad::Properties::new(),
+            aces: vec![],
+            enabled_cert_templates: vec![TypedPrincipal {
+                object_identifier: "TEMPLATE-SID".to_string(),
+                object_type: "CertTemplate".to_string(),
+            }],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::EnterpriseCa,
+        };
+
+        let mut dataset = ParsedDataset::default();
+        dataset.adcs.push(cert_template);
+        dataset.adcs.push(enterprise_ca);
+
+        let graph = build(&dataset);
+
+        let published_edges = graph.outgoing("TEMPLATE-SID");
+        let published_to = published_edges.iter().find(|e| e.target == "CA-SID");
+        assert!(
+            published_to.is_some(),
+            "expected a TEMPLATE-SID -> CA-SID PublishedTo edge"
+        );
+        assert_eq!(published_to.unwrap().kind, EdgeKind::PublishedTo);
     }
 }
