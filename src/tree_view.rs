@@ -54,6 +54,9 @@ pub fn print_tree(graph: &Graph, root_id: &str, cfg: &TreeConfig) {
     if root.high_value {
         println!("  {YELLOW}! HIGH VALUE / TIER ZERO{RESET}");
     }
+    if let Some(note) = &root.vulnerability_note {
+        println!("  {RED}⚠ {note}{RESET}");
+    }
 
     let mut visited = HashSet::new();
     visited.insert(root_id.to_string());
@@ -103,8 +106,13 @@ fn print_edge(
         String::new()
     };
 
+    let vuln_marker = target_node
+        .and_then(|n| n.vulnerability_note.as_ref())
+        .map(|note| format!(" {RED}⚠ {note}{RESET}"))
+        .unwrap_or_default();
+
     println!(
-        "{prefix}{branch}{edge_col}{edge_name}{RESET} ──► {target_col}{BOLD}{target_name}{RESET}{tag}{hv_marker}{cycle}",
+        "{prefix}{branch}{edge_col}{edge_name}{RESET} ──► {target_col}{BOLD}{target_name}{RESET}{tag}{hv_marker}{vuln_marker}{cycle}",
         edge_name = edge.kind,
     );
 
@@ -277,6 +285,9 @@ pub fn print_tier_zero(graph: &Graph) {
             kind_tag(n),
             n.domain_sid.as_deref().unwrap_or("")
         );
+        if let Some(note) = &n.vulnerability_note {
+            println!("      {RED}⚠ {note}{RESET}");
+        }
     }
 }
 

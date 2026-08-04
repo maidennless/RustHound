@@ -262,7 +262,8 @@ fn main() -> anyhow::Result<()> {
             tier_zero,
         } => {
             let dataset = parse_path(&path)?;
-            let graph = graph_builder::build(&dataset);
+            let mut graph = graph_builder::build(&dataset);
+            analysis::mark_adcs_vulnerabilities(&mut graph, &dataset);
 
             if tier_zero {
                 tree_view::print_tier_zero(&graph);
@@ -322,7 +323,8 @@ fn main() -> anyhow::Result<()> {
         // paths
         Commands::Paths { path, from, max } => {
             let dataset = parse_path(&path)?;
-            let graph = graph_builder::build(&dataset);
+            let mut graph = graph_builder::build(&dataset);
+            analysis::mark_adcs_vulnerabilities(&mut graph, &dataset);
 
             let matches = graph.find_all(&from);
             if matches.len() > 1 {
@@ -345,7 +347,8 @@ fn main() -> anyhow::Result<()> {
         // tui
         Commands::Tui { path } => {
             let dataset = parse_path(&path)?;
-            let graph = graph_builder::build(&dataset);
+            let mut graph = graph_builder::build(&dataset);
+            analysis::mark_adcs_vulnerabilities(&mut graph, &dataset);
 
             eprintln!(
                 "Building graph: {} nodes, {} edges",

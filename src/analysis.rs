@@ -7,6 +7,7 @@
 
 use crate::ad::{AdcsKind, PropertyAccess};
 use crate::edges::EdgeKind;
+use crate::graph_builder::Graph;
 use crate::ParsedDataset;
 
 #[derive(Debug, serde::Serialize)]
@@ -90,14 +91,6 @@ pub struct AdminEdge {
 /// A CertTemplate vulnerable to ESC1 (client-auth cert forgery), reachable
 /// by a specific principal via a specific enrollment-granting right, and
 /// published to a specific EnterpriseCA.
-///
-/// ESC1 condition (per Certified Pre-Owned / BloodHound):
-/// - Template: enrollee supplies subject (attacker-controlled SAN)
-/// - Template: client authentication EKU enabled
-/// - Template: no manager approval required
-/// - Template: zero authorized-signatures requirement
-/// - Principal holds Enroll, GenericAll, or AllExtendedRights on the template
-/// - Template is published to a live EnterpriseCA
 #[derive(Debug, serde::Serialize)]
 pub struct Esc1Finding {
     pub template_object_id: String,
@@ -108,7 +101,102 @@ pub struct Esc1Finding {
     pub principal_right: String,
 }
 
-pub fn analyze(d: &ParsedDataset, graph: &crate::graph_builder::Graph) -> Vec<AnalysisReport> {
+/// The single, authoritative ESC1 vulnerability condition for a CertTemplate.
+/// Used both by per-domain reporting (`analyze`) and whole-graph marking
+/// (`mark_adcs_vulnerabilities`), so the two views can never drift apart.
+fn is_esc1_vulnerable_template(tpl: &crate::ad::AdcsObject) -> bool {
+    tpl.enrollee_supplies_subject()
+        && tpl.authentication_enabled()
+        && !tpl.requires_manager_approval()
+        && tpl.authorized_signatures_required().unwrap_or(0) == 0
+}
+
+/// Finds all ESC1 findings across `dataset`. If `domain_sid` is `Some`,
+/// results are restricted to that domain (used by per-domain reporting).
+/// If `None`, every domain's templates are considered (used for
+/// whole-graph vulnerability marking).
+fn find_esc1_findings(
+    d: &ParsedDataset,
+    graph: &Graph,
+    domain_sid: Option<&str>,
+) -> Vec<Esc1Finding> {
+    let mut findings = Vec::new();
+
+    for tpl in d.adcs.iter().filter(|a| a.kind == AdcsKind::CertTemplate) {
+        if let Some(sid) = domain_sid {
+            let in_domain = tpl.domain_sid().map(|s| s == sid).unwrap_or(true);
+            if !in_domain {
+                continue;
+            }
+        }
+
+        if !is_esc1_vulnerable_template(tpl) {
+            continue;
+        }
+
+        for pub_edge in graph.outgoing(&tpl.object_identifier) {
+            if pub_edge.kind != EdgeKind::PublishedTo {
+                continue;
+            }
+            let ca_id = &pub_edge.target;
+            let ca_name = graph
+                .node(ca_id)
+                .map(|n| n.name.clone())
+                .unwrap_or_else(|| ca_id.clone());
+
+            for enroll_edge in graph.incoming(&tpl.object_identifier) {
+                if matches!(
+                    enroll_edge.kind,
+                    EdgeKind::Enroll | EdgeKind::GenericAll | EdgeKind::AllExtendedRights
+                ) {
+                    findings.push(Esc1Finding {
+                        template_object_id: tpl.object_identifier.clone(),
+                        template_name: tpl.name().to_string(),
+                        ca_object_id: ca_id.clone(),
+                        ca_name: ca_name.clone(),
+                        principal_id: enroll_edge.source.clone(),
+                        principal_right: enroll_edge.kind.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    findings
+}
+
+/// Marks confirmed ADCS vulnerabilities (currently: ESC1) directly on the
+/// graph, so interactive views (tree/paths/tui) surface them automatically:
+/// vulnerable CertTemplate nodes become `high_value`, which makes them
+/// appear in Tier Zero listings and as BFS attack-path targets, with a
+/// human-readable `vulnerability_note` explaining why.
+///
+/// Call this after `graph_builder::build()` and before handing the graph
+/// to `tree_view` or `tui`.
+pub fn mark_adcs_vulnerabilities(graph: &mut Graph, dataset: &ParsedDataset) {
+    let findings = find_esc1_findings(dataset, graph, None);
+
+    let mut notes: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for f in &findings {
+        notes
+            .entry(f.template_object_id.clone())
+            .or_default()
+            .push(format!(
+                "ESC1: {} can enroll via {} (published to {})",
+                f.principal_id, f.principal_right, f.ca_name
+            ));
+    }
+
+    for (template_id, template_notes) in notes {
+        if let Some(node) = graph.nodes.get_mut(&template_id) {
+            node.high_value = true;
+            node.vulnerability_note = Some(template_notes.join("; "));
+        }
+    }
+}
+
+pub fn analyze(d: &ParsedDataset, graph: &Graph) -> Vec<AnalysisReport> {
     d.domains
         .iter()
         .map(|dom| analyze_domain(d, graph, &dom.object_identifier, dom.name()))
@@ -117,7 +205,7 @@ pub fn analyze(d: &ParsedDataset, graph: &crate::graph_builder::Graph) -> Vec<An
 
 fn analyze_domain(
     d: &ParsedDataset,
-    graph: &crate::graph_builder::Graph,
+    graph: &Graph,
     domain_sid: &str,
     domain_name: &str,
 ) -> AnalysisReport {
@@ -262,47 +350,7 @@ fn analyze_domain(
         })
         .collect();
 
-    // ESC1 detection — vulnerable CertTemplates reachable via Enroll/GenericAll/
-    // AllExtendedRights, published to a live EnterpriseCA.
-    let mut esc1_findings: Vec<Esc1Finding> = Vec::new();
-    for tpl in d.adcs.iter().filter(|a| a.kind == AdcsKind::CertTemplate) {
-        let in_domain = tpl.domain_sid().map(|s| s == domain_sid).unwrap_or(true);
-        let vulnerable = tpl.enrollee_supplies_subject()
-            && tpl.authentication_enabled()
-            && !tpl.requires_manager_approval()
-            && tpl.authorized_signatures_required().unwrap_or(0) == 0;
-
-        if !in_domain || !vulnerable {
-            continue;
-        }
-
-        for pub_edge in graph.outgoing(&tpl.object_identifier) {
-            if pub_edge.kind != EdgeKind::PublishedTo {
-                continue;
-            }
-            let ca_id = &pub_edge.target;
-            let ca_name = graph
-                .node(ca_id)
-                .map(|n| n.name.clone())
-                .unwrap_or_else(|| ca_id.clone());
-
-            for enroll_edge in graph.incoming(&tpl.object_identifier) {
-                if matches!(
-                    enroll_edge.kind,
-                    EdgeKind::Enroll | EdgeKind::GenericAll | EdgeKind::AllExtendedRights
-                ) {
-                    esc1_findings.push(Esc1Finding {
-                        template_object_id: tpl.object_identifier.clone(),
-                        template_name: tpl.name().to_string(),
-                        ca_object_id: ca_id.clone(),
-                        ca_name: ca_name.clone(),
-                        principal_id: enroll_edge.source.clone(),
-                        principal_right: enroll_edge.kind.to_string(),
-                    });
-                }
-            }
-        }
-    }
+    let esc1_findings = find_esc1_findings(d, graph, Some(domain_sid));
 
     AnalysisReport {
         domain_name: domain_name.to_string(),
@@ -325,8 +373,7 @@ mod tests {
     use crate::ad::{Ace, AdDomain, AdcsObject, TypedPrincipal};
     use crate::graph_builder;
 
-    #[test]
-    fn detects_esc1_vulnerable_template() {
+    fn vulnerable_template_dataset() -> ParsedDataset {
         let mut tpl_props = crate::ad::Properties::new();
         tpl_props.insert("name".to_string(), serde_json::json!("VulnTemplate"));
         tpl_props.insert(
@@ -390,7 +437,12 @@ mod tests {
         dataset.adcs.push(template);
         dataset.adcs.push(ca);
         dataset.domains.push(domain);
+        dataset
+    }
 
+    #[test]
+    fn detects_esc1_vulnerable_template() {
+        let dataset = vulnerable_template_dataset();
         let graph = graph_builder::build(&dataset);
         let reports = analyze(&dataset, &graph);
 
@@ -472,5 +524,65 @@ mod tests {
         let reports = analyze(&dataset, &graph);
 
         assert_eq!(reports[0].esc1_findings.len(), 0);
+    }
+
+    #[test]
+    fn mark_adcs_vulnerabilities_flags_template_as_high_value_with_note() {
+        let dataset = vulnerable_template_dataset();
+        let mut graph = graph_builder::build(&dataset);
+
+        // Before marking: template is not high_value, has no note.
+        let before = graph.node("TEMPLATE-SID").unwrap();
+        assert!(!before.high_value);
+        assert!(before.vulnerability_note.is_none());
+
+        mark_adcs_vulnerabilities(&mut graph, &dataset);
+
+        let after = graph.node("TEMPLATE-SID").unwrap();
+        assert!(
+            after.high_value,
+            "vulnerable template should become high_value"
+        );
+        let note = after
+            .vulnerability_note
+            .as_ref()
+            .expect("expected a vulnerability note");
+        assert!(note.contains("ESC1"));
+        assert!(note.contains("ATTACKER-SID"));
+
+        // The CA itself must NOT be marked — only the template is the vulnerability.
+        let ca = graph.node("CA-SID").unwrap();
+        assert!(!ca.high_value);
+        assert!(ca.vulnerability_note.is_none());
+    }
+
+    #[test]
+    fn mark_adcs_vulnerabilities_leaves_safe_templates_untouched() {
+        let mut tpl_props = crate::ad::Properties::new();
+        tpl_props.insert("name".to_string(), serde_json::json!("SafeTemplate"));
+        tpl_props.insert(
+            "enrolleesuppliessubject".to_string(),
+            serde_json::json!(false),
+        );
+
+        let template = AdcsObject {
+            object_identifier: "SAFE-TEMPLATE-SID".to_string(),
+            properties: tpl_props,
+            aces: vec![],
+            enabled_cert_templates: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::CertTemplate,
+        };
+
+        let mut dataset = ParsedDataset::default();
+        dataset.adcs.push(template);
+
+        let mut graph = graph_builder::build(&dataset);
+        mark_adcs_vulnerabilities(&mut graph, &dataset);
+
+        let node = graph.node("SAFE-TEMPLATE-SID").unwrap();
+        assert!(!node.high_value);
+        assert!(node.vulnerability_note.is_none());
     }
 }

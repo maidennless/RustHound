@@ -24,6 +24,9 @@ pub struct GNode {
     pub admin_count: bool,
     pub domain_sid: Option<String>,
     pub adcs_kind: Option<crate::ad::AdcsKind>,
+    /// Human-readable note explaining why this node is flagged as a
+    /// confirmed vulnerability (e.g. ESC1). None for unaffected nodes.
+    pub vulnerability_note: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,6 +114,7 @@ impl GEdge {
             EdgeKind::WriteSPN | EdgeKind::AddKeyCredentialLink => "\x1b[95m", // bright magenta
             EdgeKind::CanRDP | EdgeKind::CanPSRemote | EdgeKind::ExecuteDCOM => "\x1b[36m", // cyan
             EdgeKind::AllowedToDelegate | EdgeKind::AllowedToAct => "\x1b[93m", // bright yellow
+            EdgeKind::PublishedTo => "\x1b[35m",                               // magenta
             _ => "\x1b[37m",                                                   // white
         }
     }
@@ -221,6 +225,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
                 admin_count: u.admin_count(),
                 domain_sid: u.domain_sid().map(str::to_string),
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
         for ace in &u.aces {
@@ -249,6 +254,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
                 admin_count: g.admin_count(),
                 domain_sid: g.domain_sid().map(str::to_string),
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
         // MemberOf edges: member → MemberOf → group
@@ -275,6 +281,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
                 admin_count: false,
                 domain_sid: c.domain_sid().map(str::to_string),
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
         for ace in &c.aces {
@@ -326,6 +333,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
                 admin_count: false,
                 domain_sid: Some(d.object_identifier.clone()),
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
         for ace in &d.aces {
@@ -347,6 +355,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
                 admin_count: false,
                 domain_sid: None,
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
         for ace in &g.aces {
@@ -368,6 +377,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
                 admin_count: false,
                 domain_sid: None,
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
         for ace in &o.aces {
@@ -389,6 +399,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
                 admin_count: false,
                 domain_sid: None,
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
     }
@@ -407,6 +418,7 @@ pub fn build(dataset: &ParsedDataset) -> Graph {
                 admin_count: false,
                 domain_sid: a.properties.prop_str("domainsid").map(str::to_string),
                 adcs_kind: Some(a.kind),
+                vulnerability_note: None,
             },
         );
         for ace in &a.aces {
@@ -465,6 +477,7 @@ mod tests {
                 admin_count: false,
                 domain_sid: None,
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
         nodes.insert(
@@ -478,6 +491,7 @@ mod tests {
                 admin_count: false,
                 domain_sid: None,
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
 
@@ -518,6 +532,7 @@ mod tests {
                 admin_count: false,
                 domain_sid: None,
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
         nodes.insert(
@@ -531,6 +546,7 @@ mod tests {
                 admin_count: false,
                 domain_sid: None,
                 adcs_kind: None,
+                vulnerability_note: None,
             },
         );
 
@@ -629,6 +645,7 @@ mod tests {
         assert!(generic_all.is_some());
         assert_eq!(generic_all.unwrap().kind, EdgeKind::GenericAll);
         assert!(generic_all.unwrap().is_attack_edge());
+
         let mystery_edges = graph.outgoing("MYSTERY-SID");
         let unknown_edge = mystery_edges.iter().find(|e| e.target == "USER-SID");
         assert!(unknown_edge.is_some());
