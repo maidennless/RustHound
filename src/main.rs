@@ -236,9 +236,22 @@ fn main() -> anyhow::Result<()> {
                 println!("    MemberOf:   {:>4}", r.member_edges.len());
                 println!("    HasSession: {:>4}", r.session_edges.len());
                 println!("    AdminTo:    {:>4}", r.admin_edges.len());
+
+                println!(
+                    "\n  [ADCS ESC1 — Vulnerable Certificate Templates]  ({} found)",
+                    r.esc1_findings.len()
+                );
+                if r.esc1_findings.is_empty() {
+                    println!("    None");
+                }
+                for f in &r.esc1_findings {
+                    println!(
+                        "    !  {} can {} on template '{}' (published to CA '{}')",
+                        f.principal_id, f.principal_right, f.template_name, f.ca_name
+                    );
+                }
             }
         }
-
         // tree
         Commands::Tree {
             path,
