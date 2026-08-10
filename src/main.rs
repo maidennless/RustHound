@@ -250,6 +250,20 @@ fn main() -> anyhow::Result<()> {
                         f.principal_id, f.principal_right, f.template_name, f.ca_name
                     );
                 }
+
+                println!(
+                    "\n  [ADCS ESC4 — Certificate Template ACL Abuse]  ({} found)",
+                    r.esc4_findings.len()
+                );
+                if r.esc4_findings.is_empty() {
+                    println!("    None");
+                }
+                for f in &r.esc4_findings {
+                    println!(
+                        "    !  {} has {} on template '{}' (published to CA '{}')",
+                        f.principal_id, f.principal_right, f.template_name, f.ca_name
+                    );
+                }
             }
         }
         // tree

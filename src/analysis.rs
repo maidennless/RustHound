@@ -23,6 +23,7 @@ pub struct AnalysisReport {
     pub session_edges: Vec<SessionEdge>,
     pub admin_edges: Vec<AdminEdge>,
     pub esc1_findings: Vec<Esc1Finding>,
+    pub esc4_findings: Vec<Esc4Finding>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -101,6 +102,16 @@ pub struct Esc1Finding {
     pub principal_right: String,
 }
 
+#[derive(Debug, serde::Serialize)]
+pub struct Esc4Finding {
+    pub template_object_id: String,
+    pub template_name: String,
+    pub ca_object_id: String,
+    pub ca_name: String,
+    pub principal_id: String,
+    pub principal_right: String,
+}
+
 /// The single, authoritative ESC1 vulnerability condition for a CertTemplate.
 /// Used both by per-domain reporting (`analyze`) and whole-graph marking
 /// (`mark_adcs_vulnerabilities`), so the two views can never drift apart.
@@ -109,6 +120,58 @@ fn is_esc1_vulnerable_template(tpl: &crate::ad::AdcsObject) -> bool {
         && tpl.authentication_enabled()
         && !tpl.requires_manager_approval()
         && tpl.authorized_signatures_required().unwrap_or(0) == 0
+}
+
+/// Finds all ESC4 findings: a principal holds WriteDacl, WriteOwner,
+/// GenericWrite, or GenericAll directly on a CertTemplate object, letting
+/// them reconfigure it into an ESC1-exploitable state and enroll.
+fn find_esc4_findings(
+    d: &ParsedDataset,
+    graph: &Graph,
+    domain_sid: Option<&str>,
+) -> Vec<Esc4Finding> {
+    let mut findings = Vec::new();
+
+    for tpl in d.adcs.iter().filter(|a| a.kind == AdcsKind::CertTemplate) {
+        if let Some(sid) = domain_sid {
+            let in_domain = tpl.domain_sid().map(|s| s == sid).unwrap_or(true);
+            if !in_domain {
+                continue;
+            }
+        }
+
+        for pub_edge in graph.outgoing(&tpl.object_identifier) {
+            if pub_edge.kind != EdgeKind::PublishedTo {
+                continue;
+            }
+            let ca_id = &pub_edge.target;
+            let ca_name = graph
+                .node(ca_id)
+                .map(|n| n.name.clone())
+                .unwrap_or_else(|| ca_id.clone());
+
+            for ace_edge in graph.incoming(&tpl.object_identifier) {
+                if matches!(
+                    ace_edge.kind,
+                    EdgeKind::WriteDacl
+                        | EdgeKind::WriteOwner
+                        | EdgeKind::GenericWrite
+                        | EdgeKind::GenericAll
+                ) {
+                    findings.push(Esc4Finding {
+                        template_object_id: tpl.object_identifier.clone(),
+                        template_name: tpl.name().to_string(),
+                        ca_object_id: ca_id.clone(),
+                        ca_name: ca_name.clone(),
+                        principal_id: ace_edge.source.clone(),
+                        principal_right: ace_edge.kind.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    findings
 }
 
 /// Finds all ESC1 findings across `dataset`. If `domain_sid` is `Some`,
@@ -174,16 +237,26 @@ fn find_esc1_findings(
 /// Call this after `graph_builder::build()` and before handing the graph
 /// to `tree_view` or `tui`.
 pub fn mark_adcs_vulnerabilities(graph: &mut Graph, dataset: &ParsedDataset) {
-    let findings = find_esc1_findings(dataset, graph, None);
+    let esc1_findings = find_esc1_findings(dataset, graph, None);
+    let esc4_findings = find_esc4_findings(dataset, graph, None);
 
     let mut notes: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
-    for f in &findings {
+    for f in &esc1_findings {
         notes
             .entry(f.template_object_id.clone())
             .or_default()
             .push(format!(
                 "ESC1: {} can enroll via {} (published to {})",
+                f.principal_id, f.principal_right, f.ca_name
+            ));
+    }
+    for f in &esc4_findings {
+        notes
+            .entry(f.template_object_id.clone())
+            .or_default()
+            .push(format!(
+                "ESC4: {} can reconfigure template via {} (published to {})",
                 f.principal_id, f.principal_right, f.ca_name
             ));
     }
@@ -351,6 +424,7 @@ fn analyze_domain(
         .collect();
 
     let esc1_findings = find_esc1_findings(d, graph, Some(domain_sid));
+    let esc4_findings = find_esc4_findings(d, graph, Some(domain_sid));
 
     AnalysisReport {
         domain_name: domain_name.to_string(),
@@ -364,6 +438,7 @@ fn analyze_domain(
         session_edges,
         admin_edges,
         esc1_findings,
+        esc4_findings,
     }
 }
 
@@ -584,5 +659,112 @@ mod tests {
         let node = graph.node("SAFE-TEMPLATE-SID").unwrap();
         assert!(!node.high_value);
         assert!(node.vulnerability_note.is_none());
+    }
+
+    #[test]
+    fn detects_esc4_template_acl_abuse() {
+        let template = AdcsObject {
+            object_identifier: "TEMPLATE-SID".to_string(),
+            properties: {
+                let mut p = crate::ad::Properties::new();
+                p.insert("name".to_string(), serde_json::json!("NormalTemplate"));
+                p
+            },
+            aces: vec![Ace {
+                right_name: "WriteDacl".to_string(),
+                is_inherited: false,
+                principal_sid: "ATTACKER-SID".to_string(),
+                principal_type: "User".to_string(),
+            }],
+            enabled_cert_templates: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::CertTemplate,
+        };
+
+        let ca = AdcsObject {
+            object_identifier: "CA-SID".to_string(),
+            properties: {
+                let mut p = crate::ad::Properties::new();
+                p.insert("name".to_string(), serde_json::json!("CORP-CA"));
+                p
+            },
+            aces: vec![],
+            enabled_cert_templates: vec![TypedPrincipal {
+                object_identifier: "TEMPLATE-SID".to_string(),
+                object_type: "CertTemplate".to_string(),
+            }],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::EnterpriseCa,
+        };
+
+        let domain = AdDomain {
+            object_identifier: "DOMAIN-SID".to_string(),
+            properties: {
+                let mut p = crate::ad::Properties::new();
+                p.insert("name".to_string(), serde_json::json!("TEST.LOCAL"));
+                p
+            },
+            trusts: vec![],
+            aces: vec![],
+            links: vec![],
+            child_objects: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+        };
+
+        let mut dataset = ParsedDataset::default();
+        dataset.adcs.push(template);
+        dataset.adcs.push(ca);
+        dataset.domains.push(domain);
+
+        let graph = graph_builder::build(&dataset);
+        let reports = analyze(&dataset, &graph);
+
+        assert_eq!(reports[0].esc4_findings.len(), 1);
+        let finding = &reports[0].esc4_findings[0];
+        assert_eq!(finding.principal_id, "ATTACKER-SID");
+        assert_eq!(finding.principal_right, "WriteDacl");
+        assert_eq!(finding.ca_object_id, "CA-SID");
+    }
+
+    #[test]
+    fn does_not_flag_esc4_without_acl_rights() {
+        let template = AdcsObject {
+            object_identifier: "TEMPLATE-SID".to_string(),
+            properties: crate::ad::Properties::new(),
+            aces: vec![Ace {
+                right_name: "Enroll".to_string(),
+                is_inherited: false,
+                principal_sid: "SOMEUSER-SID".to_string(),
+                principal_type: "User".to_string(),
+            }],
+            enabled_cert_templates: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::CertTemplate,
+        };
+
+        let ca = AdcsObject {
+            object_identifier: "CA-SID".to_string(),
+            properties: crate::ad::Properties::new(),
+            aces: vec![],
+            enabled_cert_templates: vec![TypedPrincipal {
+                object_identifier: "TEMPLATE-SID".to_string(),
+                object_type: "CertTemplate".to_string(),
+            }],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::EnterpriseCa,
+        };
+
+        let mut dataset = ParsedDataset::default();
+        dataset.adcs.push(template);
+        dataset.adcs.push(ca);
+
+        let graph = graph_builder::build(&dataset);
+        let findings = find_esc4_findings(&dataset, &graph, None);
+        assert_eq!(findings.len(), 0, "Enroll alone should not trigger ESC4");
     }
 }
