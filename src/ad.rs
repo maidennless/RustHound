@@ -488,6 +488,18 @@ impl AdcsObject {
             .prop_bool("hasenrollmentagentrestrictions")
             .unwrap_or(false)
     }
+
+    /// True if EDITF_ATTRIBUTESUBJECTALTNAME2 (0x00040000) is set in the CA's
+    /// EditFlags. When set, the CA accepts an attacker-supplied SAN on ANY
+    /// published template with an authentication EKU (ESC6). Only meaningful
+    /// for AdcsKind::EnterpriseCa.
+    pub fn editf_attributesubjectaltname2_enabled(&self) -> bool {
+        const EDITF_ATTRIBUTESUBJECTALTNAME2: i64 = 0x00040000;
+        self.properties
+            .prop_i64("flags")
+            .map(|f| f & EDITF_ATTRIBUTESUBJECTALTNAME2 != 0)
+            .unwrap_or(false)
+    }
 }
 
 /// All possible AD/Azure object types, for graph node tagging.

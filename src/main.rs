@@ -264,6 +264,20 @@ fn main() -> anyhow::Result<()> {
                         f.principal_id, f.principal_right, f.template_name, f.ca_name
                     );
                 }
+
+                println!(
+                    "\n  [ADCS ESC6 — CA Allows Attacker-Supplied SAN]  ({} found)",
+                    r.esc6_findings.len()
+                );
+                if r.esc6_findings.is_empty() {
+                    println!("    None");
+                }
+                for f in &r.esc6_findings {
+                    println!(
+                        "    !  {} can {} on template '{}' — CA '{}' has EDITF_ATTRIBUTESUBJECTALTNAME2 set",
+                        f.principal_id, f.principal_right, f.template_name, f.ca_name
+                    );
+                }
             }
         }
         // tree
