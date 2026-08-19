@@ -131,3 +131,35 @@ fn full_dataset_round_trip_counts() {
     // 9 + 53 + 1 + 1 + 2 + 2 + 19 = 87
     assert_eq!(total, 87);
 }
+
+
+#[test]
+fn analyze_detects_esc1_and_esc4_across_real_adcs_fixtures() {
+    use rusthound_tui::{analysis, graph_builder, parse_path};
+
+    let dataset =
+        parse_path(std::path::Path::new("tests/fixtures")).expect("fixtures dir should parse");
+    let graph = graph_builder::build(&dataset);
+    let reports = analysis::analyze(&dataset, &graph);
+
+    let phantom = reports
+        .iter()
+        .find(|r| r.domain_name.eq_ignore_ascii_case("PHANTOM.CORP"))
+        .expect("PHANTOM.CORP report should exist");
+    assert_eq!(phantom.esc1_findings.len(), 35);
+    assert_eq!(phantom.esc4_findings.len(), 278);
+
+    let wraith = reports
+        .iter()
+        .find(|r| r.domain_name.eq_ignore_ascii_case("WRAITH.CORP"))
+        .expect("WRAITH.CORP report should exist");
+    assert_eq!(wraith.esc1_findings.len(), 4);
+    assert_eq!(wraith.esc4_findings.len(), 148);
+
+    let tombwatcher = reports
+        .iter()
+        .find(|r| r.domain_name.eq_ignore_ascii_case("TOMBWATCHER.HTB"))
+        .expect("TOMBWATCHER.HTB report should exist");
+    assert_eq!(tombwatcher.esc1_findings.len(), 0);
+    assert_eq!(tombwatcher.esc4_findings.len(), 0);
+}
