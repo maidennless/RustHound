@@ -493,12 +493,36 @@ impl AdcsObject {
     /// EditFlags. When set, the CA accepts an attacker-supplied SAN on ANY
     /// published template with an authentication EKU (ESC6). Only meaningful
     /// for AdcsKind::EnterpriseCa.
+    ///
+    ///UNVERIFIED against real SharpHound schema. In real fixture data,
+    /// EnterpriseCA `flags` is a comma-separated string of CA server-type
+    /// flag names (e.g. "SUPPORTS_NT_AUTHENTICATION, CA_SERVERTYPE_ADVANCED"),
+    /// not an integer bitmask -- so this always returns false against real
+    /// data today. We have not confirmed whether EDITF_ATTRIBUTESUBJECTALTNAME2
+    /// is exposed under this property, a different property, or not at all
+    /// in SharpHound-CE's JSON output. Do not treat a `false` result from
+    /// this method as a confirmed "safe" finding. See project backlog.
     pub fn editf_attributesubjectaltname2_enabled(&self) -> bool {
         const EDITF_ATTRIBUTESUBJECTALTNAME2: i64 = 0x00040000;
         self.properties
             .prop_i64("flags")
             .map(|f| f & EDITF_ATTRIBUTESUBJECTALTNAME2 != 0)
             .unwrap_or(false)
+    }
+    // --- CA trust-chain accessors (RootCA, AIACA, EnterpriseCA carry a single
+    // thumbprint + chain; NTAuthStore carries the plural trusted-thumbprints
+    // list). Verified against real PHANTOM.CORP/WRAITH.CORP fixture data.
+
+    pub fn cert_thumbprint(&self) -> Option<&str> {
+        self.properties.prop_str("certthumbprint")
+    }
+
+    pub fn cert_chain(&self) -> Vec<String> {
+        self.properties.prop_str_vec("certchain")
+    }
+
+    pub fn cert_thumbprints(&self) -> Vec<String> {
+        self.properties.prop_str_vec("certthumbprints")
     }
 }
 
