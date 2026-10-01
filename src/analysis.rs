@@ -123,6 +123,39 @@ pub struct Esc6Finding {
     pub principal_right: String,
 }
 
+/// Returns true if `ca`'s certificate is trusted for NT authentication --
+/// i.e. its own thumbprint or something in its cert chain appears in any
+/// NTAuthStore's trusted-thumbprints list. A CertTemplate published to an
+/// untrusted CA cannot actually be used to authenticate as another user,
+/// so ESC1/ESC4 findings require this to be true.
+fn ca_is_trusted_for_nt_auth(ca: &crate::ad::AdcsObject, dataset: &ParsedDataset) -> bool {
+    let chain = ca.cert_chain();
+    let ca_thumbprints: Vec<&str> = ca
+        .cert_thumbprint()
+        .into_iter()
+        .chain(chain.iter().map(|s| s.as_str()))
+        .collect();
+    if ca_thumbprints.is_empty() {
+        // No thumbprint data collected for this CA -- can't confirm trust,
+        // so don't claim it (avoids false positives from missing data).
+        return false;
+    }
+
+    d_ntauth_stores(dataset).any(|store| {
+        let trusted = store.cert_thumbprints();
+        ca_thumbprints
+            .iter()
+            .any(|tp| trusted.iter().any(|t| t == tp))
+    })
+}
+
+fn d_ntauth_stores(dataset: &ParsedDataset) -> impl Iterator<Item = &crate::ad::AdcsObject> {
+    dataset
+        .adcs
+        .iter()
+        .filter(|a| a.kind == AdcsKind::NtAuthStore)
+}
+
 /// The single, authoritative ESC1 vulnerability condition for a CertTemplate.
 /// Used both by per-domain reporting (`analyze`) and whole-graph marking
 /// (`mark_adcs_vulnerabilities`), so the two views can never drift apart.
@@ -230,6 +263,16 @@ fn find_esc4_findings(
                 .map(|n| n.name.clone())
                 .unwrap_or_else(|| ca_id.clone());
 
+            let ca_trusted = d
+                .adcs
+                .iter()
+                .find(|a| &a.object_identifier == ca_id)
+                .map(|ca| ca_is_trusted_for_nt_auth(ca, d))
+                .unwrap_or(false);
+            if !ca_trusted {
+                continue;
+            }
+
             for ace_edge in graph.incoming(&tpl.object_identifier) {
                 if matches!(
                     ace_edge.kind,
@@ -286,6 +329,16 @@ fn find_esc1_findings(
                 .node(ca_id)
                 .map(|n| n.name.clone())
                 .unwrap_or_else(|| ca_id.clone());
+
+            let ca_trusted = d
+                .adcs
+                .iter()
+                .find(|a| &a.object_identifier == ca_id)
+                .map(|ca| ca_is_trusted_for_nt_auth(ca, d))
+                .unwrap_or(false);
+            if !ca_trusted {
+                continue;
+            }
 
             for enroll_edge in graph.incoming(&tpl.object_identifier) {
                 if matches!(
@@ -571,6 +624,10 @@ mod tests {
 
         let mut ca_props = crate::ad::Properties::new();
         ca_props.insert("name".to_string(), serde_json::json!("CORP-CA"));
+        ca_props.insert(
+            "certthumbprint".to_string(),
+            serde_json::json!("CA-THUMBPRINT-ABC123"),
+        );
 
         let ca = AdcsObject {
             object_identifier: "CA-SID".to_string(),
@@ -600,9 +657,27 @@ mod tests {
             is_acl_protected: false,
         };
 
+        let ntauth_store = AdcsObject {
+            object_identifier: "NTAUTH-SID".to_string(),
+            properties: {
+                let mut p = crate::ad::Properties::new();
+                p.insert(
+                    "certthumbprints".to_string(),
+                    serde_json::json!(["CA-THUMBPRINT-ABC123"]),
+                );
+                p
+            },
+            aces: vec![],
+            enabled_cert_templates: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::NtAuthStore,
+        };
+
         let mut dataset = ParsedDataset::default();
         dataset.adcs.push(template);
         dataset.adcs.push(ca);
+        dataset.adcs.push(ntauth_store);
         dataset.domains.push(domain);
         dataset
     }
@@ -779,6 +854,10 @@ mod tests {
             properties: {
                 let mut p = crate::ad::Properties::new();
                 p.insert("name".to_string(), serde_json::json!("CORP-CA"));
+                p.insert(
+                    "certthumbprint".to_string(),
+                    serde_json::json!("ESC4-CA-THUMBPRINT-XYZ"),
+                );
                 p
             },
             aces: vec![],
@@ -806,9 +885,27 @@ mod tests {
             is_acl_protected: false,
         };
 
+        let ntauth_store = AdcsObject {
+            object_identifier: "NTAUTH-SID".to_string(),
+            properties: {
+                let mut p = crate::ad::Properties::new();
+                p.insert(
+                    "certthumbprints".to_string(),
+                    serde_json::json!(["ESC4-CA-THUMBPRINT-XYZ"]),
+                );
+                p
+            },
+            aces: vec![],
+            enabled_cert_templates: vec![],
+            is_deleted: false,
+            is_acl_protected: false,
+            kind: AdcsKind::NtAuthStore,
+        };
+
         let mut dataset = ParsedDataset::default();
         dataset.adcs.push(template);
         dataset.adcs.push(ca);
+        dataset.adcs.push(ntauth_store);
         dataset.domains.push(domain);
 
         let graph = graph_builder::build(&dataset);

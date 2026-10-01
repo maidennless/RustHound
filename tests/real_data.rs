@@ -132,7 +132,6 @@ fn full_dataset_round_trip_counts() {
     assert_eq!(total, 87);
 }
 
-
 #[test]
 fn analyze_detects_esc1_and_esc4_across_real_adcs_fixtures() {
     use rusthound_tui::{analysis, graph_builder, parse_path};
@@ -153,8 +152,17 @@ fn analyze_detects_esc1_and_esc4_across_real_adcs_fixtures() {
         .iter()
         .find(|r| r.domain_name.eq_ignore_ascii_case("WRAITH.CORP"))
         .expect("WRAITH.CORP report should exist");
-    assert_eq!(wraith.esc1_findings.len(), 4);
-    assert_eq!(wraith.esc4_findings.len(), 148);
+    // WRAITH.CORP's real ESC1/ESC4 findings dropped to 0 after adding CA
+    // trust-chain verification, because our fixture set has no
+    // ntauthstores.json for WRAITH.CORP (only PHANTOM.CORP's). This is a
+    // known fixture data gap, not evidence WRAITH.CORP is actually safe --
+    // its real CA thumbprints (9AEA9DB2... / 35FC7B87...) don't match
+    // anything in the only NTAuthStore we have, so the trust check
+    // correctly reports "cannot confirm trust" given available evidence.
+    // If a real WRAITH.CORP ntauthstores.json fixture is ever added, these
+    // assertions will need updating to reflect its actual trust data.
+    assert_eq!(wraith.esc1_findings.len(), 0);
+    assert_eq!(wraith.esc4_findings.len(), 0);
 
     let tombwatcher = reports
         .iter()
