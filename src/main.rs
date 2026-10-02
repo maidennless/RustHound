@@ -18,6 +18,59 @@ use rusthound_tui::{
     tui,
 };
 
+/// Groups ESC-style findings by template and prints them readably,
+/// truncating both the number of templates shown and the number of
+/// detail lines per template. Matches tree_view.rs's "... and N more"
+/// convention. Full detail is always available via `analyze --json`.
+fn print_esc_findings_grouped(
+    label: &str,
+    findings: &[(String, String, String, String)], // (template_name, ca_name, principal_id, principal_right)
+) {
+    use std::collections::HashMap;
+
+    println!("\n  [{label}]  ({} found)", findings.len());
+    if findings.is_empty() {
+        println!("    None");
+        return;
+    }
+
+    const MAX_TEMPLATES: usize = 10;
+    const MAX_DETAILS_PER_TEMPLATE: usize = 5;
+
+    let mut by_template: HashMap<&str, Vec<(&str, &str, &str)>> = HashMap::new();
+    for (tpl_name, ca_name, principal_id, principal_right) in findings {
+        by_template.entry(tpl_name.as_str()).or_default().push((
+            ca_name.as_str(),
+            principal_id.as_str(),
+            principal_right.as_str(),
+        ));
+    }
+
+    let mut templates: Vec<&str> = by_template.keys().copied().collect();
+    templates.sort();
+
+    let shown_templates = templates.len().min(MAX_TEMPLATES);
+    for tpl_name in &templates[..shown_templates] {
+        let details = &by_template[tpl_name];
+        println!("    ! {tpl_name}  ({} finding(s))", details.len());
+        let shown_details = details.len().min(MAX_DETAILS_PER_TEMPLATE);
+        for (ca_name, principal_id, principal_right) in &details[..shown_details] {
+            println!("        {principal_id} via {principal_right} (CA: {ca_name})");
+        }
+        if details.len() > MAX_DETAILS_PER_TEMPLATE {
+            println!(
+                "        ... and {} more (use --json for full detail)",
+                details.len() - MAX_DETAILS_PER_TEMPLATE
+            );
+        }
+    }
+    if templates.len() > MAX_TEMPLATES {
+        println!(
+            "    ... and {} more template(s) (use --json for full detail)",
+            templates.len() - MAX_TEMPLATES
+        );
+    }
+}
 // CLI definition
 
 #[derive(Parser)]
@@ -237,47 +290,50 @@ fn main() -> anyhow::Result<()> {
                 println!("    HasSession: {:>4}", r.session_edges.len());
                 println!("    AdminTo:    {:>4}", r.admin_edges.len());
 
-                println!(
-                    "\n  [ADCS ESC1 — Vulnerable Certificate Templates]  ({} found)",
-                    r.esc1_findings.len()
+                print_esc_findings_grouped(
+                    "ADCS ESC1 — Vulnerable Certificate Templates",
+                    &r.esc1_findings
+                        .iter()
+                        .map(|f| {
+                            (
+                                f.template_name.clone(),
+                                f.ca_name.clone(),
+                                f.principal_id.clone(),
+                                f.principal_right.clone(),
+                            )
+                        })
+                        .collect::<Vec<_>>(),
                 );
-                if r.esc1_findings.is_empty() {
-                    println!("    None");
-                }
-                for f in &r.esc1_findings {
-                    println!(
-                        "    !  {} can {} on template '{}' (published to CA '{}')",
-                        f.principal_id, f.principal_right, f.template_name, f.ca_name
-                    );
-                }
 
-                println!(
-                    "\n  [ADCS ESC4 — Certificate Template ACL Abuse]  ({} found)",
-                    r.esc4_findings.len()
+                print_esc_findings_grouped(
+                    "ADCS ESC4 — Certificate Template ACL Abuse",
+                    &r.esc4_findings
+                        .iter()
+                        .map(|f| {
+                            (
+                                f.template_name.clone(),
+                                f.ca_name.clone(),
+                                f.principal_id.clone(),
+                                f.principal_right.clone(),
+                            )
+                        })
+                        .collect::<Vec<_>>(),
                 );
-                if r.esc4_findings.is_empty() {
-                    println!("    None");
-                }
-                for f in &r.esc4_findings {
-                    println!(
-                        "    !  {} has {} on template '{}' (published to CA '{}')",
-                        f.principal_id, f.principal_right, f.template_name, f.ca_name
-                    );
-                }
 
-                println!(
-                    "\n  [ADCS ESC6 — CA Allows Attacker-Supplied SAN]  ({} found)",
-                    r.esc6_findings.len()
+                print_esc_findings_grouped(
+                    "ADCS ESC6 — CA Allows Attacker-Supplied SAN",
+                    &r.esc6_findings
+                        .iter()
+                        .map(|f| {
+                            (
+                                f.template_name.clone(),
+                                f.ca_name.clone(),
+                                f.principal_id.clone(),
+                                f.principal_right.clone(),
+                            )
+                        })
+                        .collect::<Vec<_>>(),
                 );
-                if r.esc6_findings.is_empty() {
-                    println!("    None");
-                }
-                for f in &r.esc6_findings {
-                    println!(
-                        "    !  {} can {} on template '{}' — CA '{}' has EDITF_ATTRIBUTESUBJECTALTNAME2 set",
-                        f.principal_id, f.principal_right, f.template_name, f.ca_name
-                    );
-                }
             }
         }
         // tree
